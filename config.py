@@ -11,12 +11,6 @@ EMAIL_CONFIG = {
     "app_password": os.getenv("GMAIL_APP_PASSWORD", "")
 }
 
-TELEGRAM_CONFIG = {
-    "bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
-    "chat_id": os.getenv("TELEGRAM_CHAT_ID", ""),
-    "api_id": os.getenv("TELEGRAM_API_ID", ""),
-    "api_hash": os.getenv("TELEGRAM_API_HASH", "")
-}
 
 ADMIN_CHAT_IDS = [
     c.strip() for c in os.getenv("ADMIN_CHAT_IDS", "").split(",") if c.strip()

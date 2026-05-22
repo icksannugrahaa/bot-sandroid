@@ -17,7 +17,7 @@ def save_users(data: dict):
         json.dump(data, f, indent=2)
 
 
-def add_user(alias: str, username: str, password: str, imei: str, bot_token: str = "", chat_id: str = ""):
+def add_user(alias: str, username: str, password: str, imei: str):
     users = load_users()
     users[alias] = {
         "username": username,
@@ -25,9 +25,7 @@ def add_user(alias: str, username: str, password: str, imei: str, bot_token: str
         "imei": imei,
         "active": True,
         "automation": False,
-        "location_pool": "kanpus",
-        "bot_token": bot_token,
-        "chat_id": chat_id
+        "location_pool": "kanpus"
     }
     save_users(users)
 

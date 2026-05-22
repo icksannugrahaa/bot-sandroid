@@ -1,84 +1,73 @@
-# 🤖 OpenWA WhatsApp Bot
+# Bot Sandroid (WhatsApp)
 
-A simple Python bot that auto-replies to WhatsApp messages using the [OpenWA](https://github.com/rmyndharis/OpenWA) API Gateway.
+A powerful, all-in-one WhatsApp bot integrating AI chat, secure credential storage, and a fully automated attendance system for Indocyber.
 
-## How It Works
+## Features
 
-```
-WhatsApp User ──▶ OpenWA Server ──webhook──▶ This Bot (Flask)
-                                                │
-WhatsApp User ◀── OpenWA Server ◀──REST API──◀──┘
-```
+1. **AI Chat (GitHub Models)**
+   - Smart AI conversation using `gpt-4o-mini` (or any other free models via GitHub API).
+   - Just chat naturally with the bot and it will reply!
 
-1. Someone sends you a WhatsApp message
-2. OpenWA receives it and forwards it to your bot's webhook URL
-3. Your bot processes the message and replies via the OpenWA REST API
+2. **Automated Attendance (Indocyber ESS)**
+   - Manage your Check-in, Check-out, and Timesheet generation directly from WhatsApp.
+   - Set randomized timeranges to automatically simulate human check-in times.
+   - Manage multiple locations and users from a single WhatsApp bot.
+   - Extract and download weekly/monthly attendance history directly to Excel format.
 
-## Setup
+3. **Login Credential Vault**
+   - Securely store and generate passwords and TOTP secrets using Fernet AES encryption.
+   - Simple commands to grab your TOTP generated 6-digit codes on the fly.
 
-### 1. Install dependencies
+## Prerequisites
 
-```bash
-cd bot-sandroid
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+- **Python 3.10+**
+- **Node.js** (For running the `open-wa` server)
+- **WhatsApp Web Session** running on `open-wa`
 
-### 2. Configure your bot
+## Setup & Installation
 
-Edit the values at the top of `bot.py` or use environment variables:
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/icksannugrahaa/bot-sandroid.git
+   cd bot-sandroid
+   ```
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `OPENWA_BASE_URL` | Your OpenWA server URL | `http://localhost:2785` |
-| `OPENWA_API_KEY` | API key from OpenWA dashboard | `your-api-key` |
-| `OPENWA_SESSION_ID` | Your registered session ID | `sess_abc123` |
-| `BOT_PORT` | Port for the webhook listener | `5000` |
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### 3. Run the bot
+3. **Configure Environment:**
+   Copy `.env.example` to `.env` and fill in your details:
+   ```bash
+   cp .env.example .env
+   ```
+   **Required Environment Variables:**
+   - `OPENWA_BASE_URL` (Your OpenWA API URL)
+   - `OPENWA_API_KEY` (Your OpenWA API Key)
+   - `GITHUB_TOKEN` (Required for the free AI chat)
+   - `ENCRYPTION_KEY` (Generate one using the python snippet in `.env.example`)
 
-```bash
-source venv/bin/activate
-python bot.py
-```
+4. **Run the Bot:**
+   ```bash
+   python bot.py
+   ```
 
-### 4. Register the webhook in OpenWA
+## Usage
 
-```bash
-curl -X POST http://localhost:2785/api/sessions/YOUR_SESSION_ID/webhooks \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_API_KEY" \
-  -d '{
-    "url": "http://YOUR_BOT_SERVER_IP:5000/webhook",
-    "events": ["message.received"]
-  }'
-```
+Start chatting with your bot on WhatsApp! Type `help` or `/help` to see all available commands.
 
-> **Note:** If your bot runs on the same server as OpenWA, use `http://localhost:5000/webhook`.
-> If they're on different servers, use the bot server's public IP or domain.
+### User Management & Attendance
+- `/adduser <alias> <username> <password> <imei>`: Add a new user
+- `/login <alias>`: Force login / retrieve API token
+- `/checkin <alias>`: Perform a manual check-in
+- `/checkout <alias>`: Perform a manual check-out
+- `/list_history <alias> timesheet`: Download your timesheet as an `.xlsx` file
 
-## Bot Commands
+### Notes & Locations
+- `/set_location <alias> <location_name_or_id>`: Set your default office/home base.
+- `/set_checkin_timerange <alias> HH:MM HH:MM`: Example: `07:15 07:45`
+- `/set_notes <alias> <custom note>`: Set a custom note for your check-in report.
 
-| Command | Response |
-|---------|----------|
-| `hello` | `hello too 👋` |
-| `ping` | `pong 🏓` |
-| `help` | Shows available commands |
-
-## Adding More Commands
-
-Edit the `handle_message()` function in `bot.py`:
-
-```python
-def handle_message(data: dict) -> None:
-    body = (data.get("body") or "").strip().lower()
-    chat_id = data.get("chatId") or data.get("from", "")
-
-    if body == "hello":
-        send_text(chat_id, "hello too 👋")
-
-    # Add your new command here:
-    elif body == "goodbye":
-        send_text(chat_id, "See you later! 👋")
-```
+---
+Made with 🤖 and ❤️ by Sandroid
