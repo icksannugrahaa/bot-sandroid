@@ -160,7 +160,7 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
     
     try:
         response = gemini_client.models.generate_content(
-            model='gemini-2.5-pro',
+            model='gemini-2.5-flash',
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction="You are a helpful, friendly AI assistant. Keep your responses concise and well-formatted for WhatsApp.",
