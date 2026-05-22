@@ -162,7 +162,7 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
     
     try:
         response = ai_client.chat.completions.create(
-            model="google/gemma-4-31b-it:free",
+            model="meta-llama/llama-3.3-70b-instruct:free",
             messages=[
                 {
                     "role": "system",
