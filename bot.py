@@ -48,14 +48,21 @@ def send_text(chat_id: str, text: str) -> dict:
         "text": text,
     }
 
+    logger.info("📤 Sending to %s | chatId=%s | text=%s", url, chat_id, text)
+
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         data = resp.json()
         logger.info("✅ Message sent to %s: %s", chat_id, text)
         return data
+    except requests.HTTPError as exc:
+        # Log the full error response from OpenWA
+        error_body = exc.response.text if exc.response is not None else "no response body"
+        logger.error("❌ HTTP %s for %s: %s", exc.response.status_code if exc.response else '?', chat_id, error_body)
+        return {"success": False, "error": error_body}
     except requests.RequestException as exc:
-        logger.error("❌ Failed to send message to %s: %s", chat_id, exc)
+        logger.error("❌ Request failed for %s: %s", chat_id, exc)
         return {"success": False, "error": str(exc)}
 
 
@@ -64,6 +71,14 @@ def handle_message(data: dict) -> None:
     Process an incoming message and decide whether to reply.
     Add your command/keyword logic here.
     """
+    # Log the full incoming data for debugging
+    logger.info("📦 Raw message data: %s", data)
+
+    # Skip messages sent by the bot itself to avoid infinite loops
+    if data.get("fromMe", False):
+        logger.info("⏭️ Skipping own message")
+        return
+
     # Extract message details
     body = (data.get("body") or "").strip().lower()
     from_id = data.get("from", "")
@@ -73,7 +88,7 @@ def handle_message(data: dict) -> None:
     # For groups, reply to the group; for private chats, reply to the sender
     chat_id = data.get("chatId") or from_id
 
-    logger.info("📩 Message from %s: %s", from_id, body)
+    logger.info("📩 Message from %s (chatId=%s): %s", from_id, chat_id, body)
 
     # ── Command handlers ─────────────────────────────────────
     if body == "hello":
