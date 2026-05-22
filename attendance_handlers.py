@@ -204,7 +204,8 @@ def location_list_cmd(send_text_fn, chat_id):
     for idx, key in enumerate(sorted_keys):
         lat, lng = locations[key]
         users_count = pool_counts[key]
-        msg += f"*{idx + 1}. {key.upper()}*\n   • Lat/Lng: `{lat}, {lng}`\n   • Total User: `{users_count}` user\n\n"
+        gmaps_link = f"https://www.google.com/maps?q={lat},{lng}"
+        msg += f"*{idx + 1}. {key.upper()}*\n   • 🗺️ {gmaps_link}\n   • Total User: `{users_count}` user\n\n"
         
     send_text_fn(chat_id, msg)
 
