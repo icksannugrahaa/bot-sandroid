@@ -17,14 +17,39 @@ logger = logging.getLogger(__name__)
 DB_PATH = os.getenv("DB_PATH", "bot_data.db")
 
 
+def _ensure_encryption_key() -> str:
+    """
+    Ensure a valid ENCRYPTION_KEY exists.
+    If missing or invalid, auto-generate one and append it to the .env file.
+    """
+    key = os.getenv("ENCRYPTION_KEY", "").strip()
+
+    if key:
+        # Validate the existing key
+        try:
+            Fernet(key.encode())
+            return key
+        except (ValueError, Exception):
+            logger.warning("⚠️ ENCRYPTION_KEY in .env is invalid — generating a new one")
+
+    # Generate a new key
+    new_key = Fernet.generate_key().decode()
+    logger.info("🔑 Generated new ENCRYPTION_KEY: %s", new_key)
+
+    # Save it to .env file
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    with open(env_path, "a") as f:
+        f.write(f"\nENCRYPTION_KEY={new_key}\n")
+    logger.info("💾 ENCRYPTION_KEY saved to %s", env_path)
+
+    # Also set it in the current process
+    os.environ["ENCRYPTION_KEY"] = new_key
+    return new_key
+
+
 def _get_fernet() -> Fernet:
-    """Get a Fernet instance using the master encryption key from env."""
-    key = os.getenv("ENCRYPTION_KEY", "")
-    if not key:
-        raise ValueError(
-            "ENCRYPTION_KEY is not set in .env. "
-            "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
-        )
+    """Get a Fernet instance using the master encryption key."""
+    key = _ensure_encryption_key()
     return Fernet(key.encode())
 
 
