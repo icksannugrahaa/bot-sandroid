@@ -10,6 +10,7 @@ import requests
 import pyotp
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+from openai import AzureOpenAI
 
 import storage
 
@@ -23,6 +24,22 @@ OPENWA_BASE_URL = os.getenv("OPENWA_BASE_URL", "http://localhost:2785")
 OPENWA_API_KEY = os.getenv("OPENWA_API_KEY", "YOUR_API_KEY")
 OPENWA_SESSION_ID = os.getenv("OPENWA_SESSION_ID", "YOUR_SESSION_ID")
 BOT_PORT = int(os.getenv("BOT_PORT", "5000"))
+
+# Azure OpenAI configuration
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
+AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+
+# Initialize Azure OpenAI Client (if configured)
+if AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY:
+    azure_ai_client = AzureOpenAI(
+        api_key=AZURE_OPENAI_API_KEY,
+        api_version=AZURE_OPENAI_API_VERSION,
+        azure_endpoint=AZURE_OPENAI_ENDPOINT
+    )
+else:
+    azure_ai_client = None
 
 # ──────────────────────────────────────────────────────────────
 # Logging
@@ -133,6 +150,40 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
     send_text(chat_id, login_code)
 
 
+def cmd_ai(chat_id: str, raw_body: str) -> None:
+    """Handle: ai <message>"""
+    if not azure_ai_client:
+        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure Azure OpenAI in the .env file.")
+        return
+
+    # Extract the user's prompt
+    parts = raw_body.split(maxsplit=1)
+    if len(parts) < 2 or not parts[1].strip():
+        send_text(chat_id, "⚠️ Usage: *ai <your question>*")
+        return
+        
+    prompt = parts[1].strip()
+    
+    # Send an initial "typing" or "thinking" message (optional, but good UX)
+    # send_text(chat_id, "💭 _Thinking..._")
+    
+    try:
+        response = azure_ai_client.chat.completions.create(
+            model=AZURE_OPENAI_DEPLOYMENT_NAME,
+            messages=[
+                {"role": "system", "content": "You are a helpful, friendly AI assistant. Keep your responses concise and well-formatted for WhatsApp."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=800
+        )
+        
+        reply = response.choices[0].message.content
+        send_text(chat_id, reply)
+    except Exception as e:
+        logger.error("❌ Azure OpenAI error: %s", e)
+        send_text(chat_id, f"❌ Sorry, I encountered an error while processing your request.")
+
+
 # ──────────────────────────────────────────────────────────────
 # Message router
 # ──────────────────────────────────────────────────────────────
@@ -172,6 +223,9 @@ def handle_message(data: dict) -> None:
     elif body == "generate code":
         cmd_generate_code(chat_id, phone)
 
+    elif body.startswith("ai "):
+        cmd_ai(chat_id, raw_body)
+
     elif body == "hello":
         send_text(chat_id, "hello too 👋")
 
@@ -185,6 +239,8 @@ def handle_message(data: dict) -> None:
             "• *hello* — Say hello\n"
             "• *ping* — Check if bot is alive\n"
             "• *help* — Show this help message\n\n"
+            "🧠 *AI Chat*\n"
+            "• *ai <question>* — Ask the AI anything\n\n"
             "🔐 *Login Code*\n"
             "• *set ambri pass <password>* — Set your password\n"
             "• *set ambri totp <secret>* — Set your TOTP secret\n"
