@@ -146,19 +146,16 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
     send_text(chat_id, login_code)
 
 
-def cmd_ai(chat_id: str, raw_body: str) -> None:
-    """Handle: ai <message>"""
+def cmd_ai(chat_id: str, prompt: str) -> None:
+    """Handle: AI chat (default fallback)"""
     if not ai_client:
         send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure GITHUB_TOKEN in the .env file.")
         return
 
-    # Extract the user's prompt
-    parts = raw_body.split(maxsplit=1)
-    if len(parts) < 2 or not parts[1].strip():
-        send_text(chat_id, "⚠️ Usage: *ai <your question>*")
+    if not prompt.strip():
         return
         
-    prompt = parts[1].strip()
+    prompt = prompt.strip()
     
     try:
         response = ai_client.chat.completions.create(
@@ -214,17 +211,14 @@ def handle_message(data: dict) -> None:
     logger.info("📩 Message from %s (chatId=%s): %s", from_id, chat_id, body)
 
     # ── Command routing ──────────────────────────────────────
-    if body.startswith("set ambri pass"):
+    if body.startswith("set ambri pass "):
         cmd_set_password(chat_id, phone, raw_body)
 
-    elif body.startswith("set ambri totp"):
+    elif body.startswith("set ambri totp "):
         cmd_set_totp(chat_id, phone, raw_body)
 
     elif body == "generate code":
         cmd_generate_code(chat_id, phone)
-
-    elif body.startswith("ai "):
-        cmd_ai(chat_id, raw_body)
 
     elif body == "hello":
         send_text(chat_id, "hello too 👋")
@@ -239,14 +233,18 @@ def handle_message(data: dict) -> None:
             "• *hello* — Say hello\n"
             "• *ping* — Check if bot is alive\n"
             "• *help* — Show this help message\n\n"
-            "🧠 *AI Chat*\n"
-            "• *ai <question>* — Ask the AI anything\n\n"
             "🔐 *Login Code*\n"
             "• *set ambri pass <password>* — Set your password\n"
             "• *set ambri totp <secret>* — Set your TOTP secret\n"
-            "• *generate code* — Get your login code"
+            "• *generate code* — Get your login code\n\n"
+            "🧠 *AI Chat*\n"
+            "• _Just send any normal message and the AI will reply!_"
         )
         send_text(chat_id, help_text)
+        
+    else:
+        # Default fallback: Treat as an AI prompt
+        cmd_ai(chat_id, raw_body)
 
 
 @app.route("/webhook", methods=["POST"])
