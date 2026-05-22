@@ -1,40 +1,17 @@
-# storage.py
-import json
-import os
+# attendance_storage.py
 import random
 from datetime import datetime, timezone
-
-_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TOKEN_DIR = os.path.join(_BASE_DIR, "tokens")
-STATUS_DIR = os.path.join(_BASE_DIR, "status")
-
-os.makedirs(TOKEN_DIR, exist_ok=True)
-os.makedirs(STATUS_DIR, exist_ok=True)
-
-
-def _token_path(alias: str) -> str:
-    return os.path.join(TOKEN_DIR, f"{alias}.json")
-
-
-def _status_path(alias: str) -> str:
-    return os.path.join(STATUS_DIR, f"{alias}.json")
-
+import storage
 
 # ======================
 # TOKEN
 # ======================
 
 def save_token(alias: str, data: dict):
-    with open(_token_path(alias), "w") as f:
-        json.dump(data, f, indent=2)
-
+    storage.save_attendance_token(alias, data)
 
 def load_token(alias: str):
-    path = _token_path(alias)
-    if not os.path.exists(path):
-        return None
-    with open(path, "r") as f:
-        return json.load(f)
+    return storage.get_attendance_token(alias)
 
 
 def is_token_expired(token: dict) -> bool:
@@ -47,16 +24,10 @@ def is_token_expired(token: dict) -> bool:
 # ======================
 
 def _load_status(alias: str) -> dict:
-    path = _status_path(alias)
-    if not os.path.exists(path):
-        return {}
-    with open(path, "r") as f:
-        return json.load(f)
-
+    return storage.get_attendance_status(alias)
 
 def _save_status(alias: str, data: dict):
-    with open(_status_path(alias), "w") as f:
-        json.dump(data, f, indent=2)
+    storage.save_attendance_status(alias, data)
 
 
 def is_already_checked_in(alias: str, date_key: str) -> bool:

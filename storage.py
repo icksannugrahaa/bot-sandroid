@@ -4,6 +4,7 @@ Passwords and TOTP secrets are encrypted at rest using Fernet (AES-128-CBC).
 """
 
 import os
+import json
 import sqlite3
 import logging
 from datetime import datetime, timezone
@@ -104,6 +105,18 @@ def init_db() -> None:
                 name TEXT PRIMARY KEY,
                 lat REAL,
                 lng REAL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS attendance_tokens (
+                alias TEXT PRIMARY KEY,
+                data TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS attendance_status (
+                alias TEXT PRIMARY KEY,
+                data TEXT
             )
         """)
         conn.commit()
@@ -268,6 +281,49 @@ def upsert_attendance_location(name: str, lat: float, lng: float) -> None:
                 lat=excluded.lat,
                 lng=excluded.lng
         """, (name.lower(), lat, lng))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_attendance_token(alias: str) -> dict | None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT data FROM attendance_tokens WHERE alias = ?", (alias,)).fetchone()
+        if row and row[0]:
+            return json.loads(row[0])
+        return None
+    finally:
+        conn.close()
+
+def save_attendance_token(alias: str, data: dict) -> None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO attendance_tokens (alias, data) VALUES (?, ?)
+            ON CONFLICT(alias) DO UPDATE SET data=excluded.data
+        """, (alias, json.dumps(data)))
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_attendance_status(alias: str) -> dict:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT data FROM attendance_status WHERE alias = ?", (alias,)).fetchone()
+        if row and row[0]:
+            return json.loads(row[0])
+        return {}
+    finally:
+        conn.close()
+
+def save_attendance_status(alias: str, data: dict) -> None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO attendance_status (alias, data) VALUES (?, ?)
+            ON CONFLICT(alias) DO UPDATE SET data=excluded.data
+        """, (alias, json.dumps(data)))
         conn.commit()
     finally:
         conn.close()
