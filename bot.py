@@ -147,16 +147,32 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
     send_text(chat_id, login_code)
 
 
-def cmd_ai(chat_id: str, prompt: str) -> None:
+def cmd_ai(chat_id: str, prompt: str, media: dict = None) -> None:
     """Handle: AI chat (default fallback)"""
     if not ai_client:
         send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure GITHUB_TOKEN in the .env file.")
         return
 
-    if not prompt.strip():
+    if not prompt.strip() and not media:
         return
         
-    prompt = prompt.strip()
+    user_content = []
+    
+    if prompt.strip():
+        user_content.append({"type": "text", "text": prompt.strip()})
+    else:
+        if media:
+            user_content.append({"type": "text", "text": "Tolong jelaskan gambar ini."})
+
+    if media and "data" in media and "mimetype" in media:
+        base64_data = media["data"]
+        mime_type = media["mimetype"]
+        user_content.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:{mime_type};base64,{base64_data}"
+            }
+        })
     
     try:
         response = ai_client.chat.completions.create(
@@ -168,7 +184,7 @@ def cmd_ai(chat_id: str, prompt: str) -> None:
                 },
                 {
                     "role": "user",
-                    "content": prompt,
+                    "content": user_content,
                 }
             ],
             temperature=0.7,
@@ -301,7 +317,7 @@ def handle_message(data: dict) -> None:
         
     else:
         # Default fallback: Treat as an AI prompt
-        cmd_ai(chat_id, raw_body)
+        cmd_ai(chat_id, raw_body, data.get("media"))
 
 
 @app.route("/webhook", methods=["POST"])
