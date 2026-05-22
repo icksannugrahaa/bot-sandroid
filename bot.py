@@ -7,7 +7,11 @@ and auto-replies using the OpenWA REST API.
 import os
 import logging
 import requests
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+
+# Load .env file (must be called before os.getenv)
+load_dotenv()
 
 # ──────────────────────────────────────────────────────────────
 # Configuration — update these values to match your OpenWA setup
