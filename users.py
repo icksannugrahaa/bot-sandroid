@@ -1,96 +1,72 @@
-import json
-import os
-
-_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-USERS_FILE = os.path.join(os.path.dirname(_BASE_DIR), "users.json")
-
+import storage
 
 def load_users():
-    if not os.path.exists(USERS_FILE):
-        return {}
-    with open(USERS_FILE, "r") as f:
-        return json.load(f)
-
-
-def save_users(data: dict):
-    with open(USERS_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
+    return storage.get_attendance_users()
 
 def add_user(alias: str, username: str, password: str, imei: str):
-    users = load_users()
-    users[alias] = {
+    data = {
         "username": username,
         "password": password,
         "imei": imei,
         "active": True,
         "automation": False,
-        "location_pool": "kanpus"
+        "location_pool": "kanpus",
+        "checkin_timerange": None,
+        "checkout_timerange": None,
+        "notes": None
     }
-    save_users(users)
-
+    storage.upsert_attendance_user(alias, data)
 
 def get_user(alias: str):
-    return load_users().get(alias)
-
+    return storage.get_attendance_user(alias)
 
 def list_users():
-    return load_users()
-
+    return storage.get_attendance_users()
 
 def set_automation(alias: str, enabled: bool):
-    users = load_users()
-    if alias not in users:
+    user = storage.get_attendance_user(alias)
+    if not user:
         return False
-    users[alias]["automation"] = enabled
-    save_users(users)
+    user["automation"] = enabled
+    storage.upsert_attendance_user(alias, user)
     return True
 
 def set_notes(alias: str, notes: str | None):
-    users = load_users()
-    if alias not in users:
+    user = storage.get_attendance_user(alias)
+    if not user:
         return False
-
-    users[alias]["notes"] = notes
-    save_users(users)
+    user["notes"] = notes
+    storage.upsert_attendance_user(alias, user)
     return True
-
 
 def set_imei(alias: str, imei: str) -> bool:
-    users = load_users()
-    if alias not in users:
+    user = storage.get_attendance_user(alias)
+    if not user:
         return False
-
-    users[alias]["imei"] = imei
-    save_users(users)
+    user["imei"] = imei
+    storage.upsert_attendance_user(alias, user)
     return True
-
 
 def set_location_pool(alias: str, pool_name: str) -> bool:
-    users = load_users()
-    if alias not in users:
+    user = storage.get_attendance_user(alias)
+    if not user:
         return False
-
-    users[alias]["location_pool"] = pool_name.lower()
-    save_users(users)
+    user["location_pool"] = pool_name.lower()
+    storage.upsert_attendance_user(alias, user)
     return True
-
 
 def set_checkin_timerange(alias: str, start_time: str, end_time: str) -> bool:
-    users = load_users()
-    if alias not in users:
+    user = storage.get_attendance_user(alias)
+    if not user:
         return False
-
-    users[alias]["checkin_timerange"] = f"{start_time}-{end_time}"
-    save_users(users)
+    user["checkin_timerange"] = f"{start_time}-{end_time}"
+    storage.upsert_attendance_user(alias, user)
     return True
 
-
 def set_checkout_timerange(alias: str, start_time: str, end_time: str) -> bool:
-    users = load_users()
-    if alias not in users:
+    user = storage.get_attendance_user(alias)
+    if not user:
         return False
-
-    users[alias]["checkout_timerange"] = f"{start_time}-{end_time}"
-    save_users(users)
+    user["checkout_timerange"] = f"{start_time}-{end_time}"
+    storage.upsert_attendance_user(alias, user)
     return True

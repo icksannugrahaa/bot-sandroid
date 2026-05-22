@@ -1,40 +1,15 @@
 import math
 import random
-import json
-import os
-
-_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOCATIONS_FILE = os.path.join(os.path.dirname(_BASE_DIR), "locations.json")
+import storage
 
 # 1 degree of latitude is ~111km (111139 meters)
 LAT_METER_DEG = 1.0 / 111139.0
 
 def load_locations() -> dict:
-    locations = {}
-    if os.path.exists(LOCATIONS_FILE):
-        try:
-            with open(LOCATIONS_FILE, "r") as f:
-                data = json.load(f)
-                for k, v in data.items():
-                    locations[k] = (float(v[0]), float(v[1]))
-        except Exception:
-            pass
-    return locations
+    return storage.get_attendance_locations()
 
 def save_location(name: str, lat: float, lng: float):
-    # Ensure backward compatibility with existing data
-    if not os.path.exists(LOCATIONS_FILE):
-        data = {}
-    else:
-        try:
-            with open(LOCATIONS_FILE, "r") as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
-    
-    data[name.lower()] = (lat, lng)
-    with open(LOCATIONS_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    storage.upsert_attendance_location(name, lat, lng)
 
 
 def _meters_to_lng_deg(latitude: float) -> float:
@@ -56,7 +31,7 @@ def get_random_location(pool_type: str) -> dict:
         # Default fallback to "kanpus"
         center_lat, center_lng = locations["kanpus"]
     else:
-        # Failsafe if locations.json is empty or corrupt
+        # Failsafe if db is empty
         center_lat, center_lng = (-6.216556144511367, 106.81407082204778)
 
     # Generate random distance up to 50m

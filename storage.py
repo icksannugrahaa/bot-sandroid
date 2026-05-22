@@ -85,6 +85,27 @@ def init_db() -> None:
                 updated_at      TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS attendance_users (
+                alias TEXT PRIMARY KEY,
+                username TEXT,
+                password TEXT,
+                imei TEXT,
+                active BOOLEAN,
+                automation BOOLEAN,
+                location_pool TEXT,
+                checkin_timerange TEXT,
+                checkout_timerange TEXT,
+                notes TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS attendance_locations (
+                name TEXT PRIMARY KEY,
+                lat REAL,
+                lng REAL
+            )
+        """)
         conn.commit()
         logger.info("📦 Database initialized at %s", DB_PATH)
     finally:
@@ -153,3 +174,101 @@ def get_credentials(phone_number: str) -> dict | None:
         return result
     finally:
         conn.close()
+
+
+# ──────────────────────────────────────────────────────────────
+# Attendance Storage (Users and Locations)
+# ──────────────────────────────────────────────────────────────
+def get_attendance_users() -> dict:
+    """Return a dictionary of all attendance users."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute("SELECT * FROM attendance_users").fetchall()
+        users = {}
+        for r in rows:
+            users[r["alias"]] = {
+                "username": r["username"],
+                "password": r["password"],
+                "imei": r["imei"],
+                "active": bool(r["active"]),
+                "automation": bool(r["automation"]),
+                "location_pool": r["location_pool"],
+                "checkin_timerange": r["checkin_timerange"],
+                "checkout_timerange": r["checkout_timerange"],
+                "notes": r["notes"]
+            }
+        return users
+    finally:
+        conn.close()
+
+
+def get_attendance_user(alias: str) -> dict | None:
+    """Return a specific attendance user."""
+    return get_attendance_users().get(alias)
+
+
+def upsert_attendance_user(alias: str, data: dict) -> None:
+    """Insert or update an attendance user."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO attendance_users (
+                alias, username, password, imei, active, automation, 
+                location_pool, checkin_timerange, checkout_timerange, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(alias) DO UPDATE SET
+                username=excluded.username,
+                password=excluded.password,
+                imei=excluded.imei,
+                active=excluded.active,
+                automation=excluded.automation,
+                location_pool=excluded.location_pool,
+                checkin_timerange=excluded.checkin_timerange,
+                checkout_timerange=excluded.checkout_timerange,
+                notes=excluded.notes
+        """, (
+            alias,
+            data.get("username"),
+            data.get("password"),
+            data.get("imei"),
+            data.get("active", True),
+            data.get("automation", False),
+            data.get("location_pool", "kanpus"),
+            data.get("checkin_timerange"),
+            data.get("checkout_timerange"),
+            data.get("notes")
+        ))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_attendance_locations() -> dict:
+    """Return a dictionary of all locations {name: (lat, lng)}."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        rows = conn.execute("SELECT name, lat, lng FROM attendance_locations").fetchall()
+        locations = {}
+        for r in rows:
+            locations[r[0]] = (r[1], r[2])
+        return locations
+    finally:
+        conn.close()
+
+
+def upsert_attendance_location(name: str, lat: float, lng: float) -> None:
+    """Insert or update a location."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO attendance_locations (name, lat, lng)
+            VALUES (?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                lat=excluded.lat,
+                lng=excluded.lng
+        """, (name.lower(), lat, lng))
+        conn.commit()
+    finally:
+        conn.close()
+
