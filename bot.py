@@ -10,7 +10,8 @@ import requests
 import pyotp
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
-from openai import AzureOpenAI
+from google import genai
+from google.genai import types
 
 import storage
 
@@ -25,21 +26,14 @@ OPENWA_API_KEY = os.getenv("OPENWA_API_KEY", "YOUR_API_KEY")
 OPENWA_SESSION_ID = os.getenv("OPENWA_SESSION_ID", "YOUR_SESSION_ID")
 BOT_PORT = int(os.getenv("BOT_PORT", "5000"))
 
-# Azure OpenAI configuration
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
-AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+# Google Gemini configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-# Initialize Azure OpenAI Client (if configured)
-if AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY:
-    azure_ai_client = AzureOpenAI(
-        api_key=AZURE_OPENAI_API_KEY,
-        api_version=AZURE_OPENAI_API_VERSION,
-        azure_endpoint=AZURE_OPENAI_ENDPOINT
-    )
+# Initialize Gemini Client (if configured)
+if GEMINI_API_KEY:
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 else:
-    azure_ai_client = None
+    gemini_client = None
 
 # ──────────────────────────────────────────────────────────────
 # Logging
@@ -152,8 +146,8 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
 
 def cmd_ai(chat_id: str, raw_body: str) -> None:
     """Handle: ai <message>"""
-    if not azure_ai_client:
-        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure Azure OpenAI in the .env file.")
+    if not gemini_client:
+        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure GEMINI_API_KEY in the .env file.")
         return
 
     # Extract the user's prompt
@@ -164,23 +158,20 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
         
     prompt = parts[1].strip()
     
-    # Send an initial "typing" or "thinking" message (optional, but good UX)
-    # send_text(chat_id, "💭 _Thinking..._")
-    
     try:
-        response = azure_ai_client.chat.completions.create(
-            model=AZURE_OPENAI_DEPLOYMENT_NAME,
-            messages=[
-                {"role": "system", "content": "You are a helpful, friendly AI assistant. Keep your responses concise and well-formatted for WhatsApp."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=800
+        response = gemini_client.models.generate_content(
+            model='gemini-2.5-pro',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction="You are a helpful, friendly AI assistant. Keep your responses concise and well-formatted for WhatsApp.",
+                temperature=0.7,
+            )
         )
         
-        reply = response.choices[0].message.content
+        reply = response.text
         send_text(chat_id, reply)
     except Exception as e:
-        logger.error("❌ Azure OpenAI error: %s", e)
+        logger.error("❌ Google Gemini error: %s", e)
         send_text(chat_id, f"❌ Sorry, I encountered an error while processing your request.")
 
 
