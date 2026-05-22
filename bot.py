@@ -11,6 +11,7 @@ import pyotp
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from openai import OpenAI
+import threading
 
 import storage
 import attendance_handlers as ah
@@ -337,7 +338,7 @@ def webhook():
     logger.info("🔔 Webhook event: %s", event)
 
     if event == "message.received":
-        handle_message(data)
+        threading.Thread(target=handle_message, args=(data,)).start()
     elif event == "session.status":
         status = data.get("status", "")
         logger.info("📡 Session status changed: %s", status)
