@@ -162,7 +162,7 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
     
     try:
         response = ai_client.chat.completions.create(
-            model="huggingfaceh4/zephyr-7b-beta:free",
+            model="google/gemma-4-31b-it:free",
             messages=[
                 {
                     "role": "system",
