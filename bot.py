@@ -235,25 +235,25 @@ def handle_message(data: dict) -> None:
             "• *ping* — Check if bot is alive\n"
             "• *help* — Show this help message\n\n"
             "🏃‍♂️ *Attendance*\n"
-            "• */checkin [alias]* - Absen masuk\n"
-            "• */checkout [alias]* - Absen pulang\n"
-            "• */list_history [alias] [week/month]* - Cek riwayat\n\n"
+            "• *checkin [alias]* - Absen masuk\n"
+            "• *checkout [alias]* - Absen pulang\n"
+            "• *list history [alias] [week/month]* - Cek riwayat\n\n"
             "⚙️ *Konfigurasi*\n"
-            "• */set_auto on/off [alias]* - Set automasi harian\n"
-            "• */set_checkin_timerange [alias] HH:MM HH:MM* - Waktu acak masuk\n"
-            "• */set_checkout_timerange [alias] HH:MM HH:MM* - Waktu acak pulang\n"
-            "• */set_notes [alias] [notes]* - Custom notes absen\n"
-            "• */clear_notes [alias]* - Reset notes absen\n"
-            "• */set_location [alias] [ID/nama]* - Set lokasi default\n\n"
+            "• *set auto on/off [alias]* - Set automasi harian\n"
+            "• *set checkin timerange [alias] HH:MM HH:MM* - Waktu acak masuk\n"
+            "• *set checkout timerange [alias] HH:MM HH:MM* - Waktu acak pulang\n"
+            "• *set notes [alias] [notes]* - Custom notes absen\n"
+            "• *clear notes [alias]* - Reset notes absen\n"
+            "• *set location [alias] [ID/nama]* - Set lokasi default\n\n"
             "📍 *Lokasi*\n"
-            "• */list_location* - Lihat daftar semua lokasi\n"
-            "• */add_location [nama] [lat,lng]* - Tambah lokasi baru\n\n"
+            "• *list location* - Lihat daftar semua lokasi\n"
+            "• *add location [nama] [lat,lng]* - Tambah lokasi baru\n\n"
             "👥 *User Management*\n"
-            "• */list_users* - Lihat user terdaftar\n"
-            "• */adduser <alias> <user> <pass> <imei>* - Tambah user\n"
-            "• */login [alias]* - Login paksa/refresh token\n"
-            "• */register_imei [alias]* - Daftarkan IMEI saat ini\n"
-            "• */generate_deviceid [alias]* - Generate IMEI baru\n\n"
+            "• *list users* - Lihat user terdaftar\n"
+            "• *add user <alias> <user> <pass> <imei>* - Tambah user\n"
+            "• *login [alias]* - Login paksa/refresh token\n"
+            "• *register imei [alias]* - Daftarkan IMEI saat ini\n"
+            "• *generate device id [alias]* - Generate IMEI baru\n\n"
             "🔐 *Login Code*\n"
             "• *set ambri pass <password>* — Set your password\n"
             "• *set ambri totp <secret>* — Set your TOTP secret\n"
@@ -266,37 +266,37 @@ def handle_message(data: dict) -> None:
         send_text(chat_id, help_text)
 
     # ── Attendance routing ───────────────────────────────────
-    elif body.startswith("/adduser "):
+    elif body.startswith("add user "):
         ah.adduser_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/login "):
+    elif body.startswith("login "):
         ah.login_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/register_imei "):
+    elif body.startswith("register imei "):
         ah.register_imei_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/generate_deviceid"):
+    elif body.startswith("generate device id"):
         ah.gendeviceid_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/checkin ") or body == "/checkin":
+    elif body.startswith("checkin ") or body == "checkin":
         ah.masuk_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/checkout ") or body == "/checkout":
+    elif body.startswith("checkout ") or body == "checkout":
         ah.pulang_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/list_history"):
+    elif body.startswith("list history"):
         ah.history_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/set_auto"):
+    elif body.startswith("set auto"):
         ah.auto_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/set_checkin_timerange"):
+    elif body.startswith("set checkin timerange"):
         ah.set_checkin_timerange_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/set_checkout_timerange"):
+    elif body.startswith("set checkout timerange"):
         ah.set_checkout_timerange_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/set_notes "):
+    elif body.startswith("set notes "):
         ah.setnotes_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/clear_notes "):
+    elif body.startswith("clear notes "):
         ah.clearnotes_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("/set_location "):
+    elif body.startswith("set location "):
         ah.setlocation_cmd(send_text, chat_id, raw_body)
-    elif body == "/list_location":
+    elif body == "list location":
         ah.location_list_cmd(send_text, chat_id)
-    elif body.startswith("/add_location "):
+    elif body.startswith("add location "):
         ah.addlocation_cmd(send_text, chat_id, raw_body)
-    elif body == "/list_users":
+    elif body == "list users":
         ah.users_cmd(send_text, chat_id)
         
     else:

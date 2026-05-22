@@ -58,16 +58,16 @@ A powerful, all-in-one WhatsApp bot integrating AI chat, secure credential stora
 Start chatting with your bot on WhatsApp! Type `help` or `/help` to see all available commands.
 
 ### User Management & Attendance
-- `/adduser <alias> <username> <password> <imei>`: Add a new user
-- `/login <alias>`: Force login / retrieve API token
-- `/checkin <alias>`: Perform a manual check-in
-- `/checkout <alias>`: Perform a manual check-out
-- `/list_history <alias> timesheet`: Download your timesheet as an `.xlsx` file
+- `add user <alias> <username> <password> <imei>`: Add a new user
+- `login <alias>`: Force login / retrieve API token
+- `checkin <alias>`: Perform a manual check-in
+- `checkout <alias>`: Perform a manual check-out
+- `list history <alias> timesheet`: Download your timesheet as an `.xlsx` file
 
 ### Notes & Locations
-- `/set_location <alias> <location_name_or_id>`: Set your default office/home base.
-- `/set_checkin_timerange <alias> HH:MM HH:MM`: Example: `07:15 07:45`
-- `/set_notes <alias> <custom note>`: Set a custom note for your check-in report.
+- `set location <alias> <location_name_or_id>`: Set your default office/home base.
+- `set checkin timerange <alias> HH:MM HH:MM`: Example: `07:15 07:45`
+- `set notes <alias> <custom note>`: Set a custom note for your check-in report.
 
 ---
 Made with 🤖 and ❤️ by Sandroid

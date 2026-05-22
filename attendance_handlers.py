@@ -57,7 +57,7 @@ def adduser_cmd(send_text_fn, chat_id, text):
         else:
             raise ValueError()
     except ValueError:
-        send_text_fn(chat_id, "Format:\n/adduser <alias> <user> <pass> <imei>")
+        send_text_fn(chat_id, "Format:\nadd user <alias> <user> <pass> <imei>")
 
 def login_cmd(send_text_fn, chat_id, text):
     try:
@@ -105,7 +105,7 @@ def gendeviceid_cmd(send_text_fn, chat_id, text):
         if len(parts) > 1:
             alias = parts[1]
             if set_imei(alias, new_imei):
-                send_text_fn(chat_id, f"✅ Device ID (IMEI) baru untuk `{alias}` berhasil dibuat dan disimpan:\n`{new_imei}`\n\nSilahkan jalankan `/register_imei {alias}`.")
+                send_text_fn(chat_id, f"✅ Device ID (IMEI) baru untuk `{alias}` berhasil dibuat dan disimpan:\n`{new_imei}`\n\nSilahkan jalankan `register imei {alias}`.")
             else:
                 send_text_fn(chat_id, "❌ User tidak ditemukan.")
         else:
@@ -149,7 +149,7 @@ def history_cmd(send_text_fn, chat_id, text):
     
     if mode == "timesheet":
         if not alias or alias not in users:
-            return send_text_fn(chat_id, "❌ User tidak ditemukan atau format salah. /list_history timesheet <alias>")
+            return send_text_fn(chat_id, "❌ User tidak ditemukan atau format salah. list history timesheet <alias>")
         
         try:
             file_path = generate_timesheet_excel(alias)
@@ -176,7 +176,7 @@ def setnotes_cmd(send_text_fn, chat_id, text):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
         send_text_fn(chat_id, f"📝 Notes `{alias}` diperbarui:\n{notes}")
     except ValueError:
-        send_text_fn(chat_id, "Format:\n/set_notes <alias> <pesan>")
+        send_text_fn(chat_id, "Format:\nset notes <alias> <pesan>")
 
 def clearnotes_cmd(send_text_fn, chat_id, text):
     try:
@@ -185,7 +185,7 @@ def clearnotes_cmd(send_text_fn, chat_id, text):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
         send_text_fn(chat_id, f"🧹 Notes `{alias}` dihapus")
     except ValueError:
-        send_text_fn(chat_id, "Format:\n/clear_notes <alias>")
+        send_text_fn(chat_id, "Format:\nclear notes <alias>")
 
 def location_list_cmd(send_text_fn, chat_id):
     locations = load_locations()
@@ -231,7 +231,7 @@ def setlocation_cmd(send_text_fn, chat_id, text):
 
         send_text_fn(chat_id, f"📍 Location pool `{alias}` diubah ke: *{pool.upper()}*")
     except Exception:
-        send_text_fn(chat_id, "Format:\n/set_location <alias> <name_or_id>")
+        send_text_fn(chat_id, "Format:\nset location <alias> <name_or_id>")
 
 def addlocation_cmd(send_text_fn, chat_id, text):
     try:
@@ -248,7 +248,7 @@ def addlocation_cmd(send_text_fn, chat_id, text):
 
         send_text_fn(chat_id, f"✅ Location `{loc_name}` berhasil ditambahkan.")
     except Exception:
-        send_text_fn(chat_id, "Format:\n/add_location <location_name> <lat,lng>")
+        send_text_fn(chat_id, "Format:\nadd location <location_name> <lat,lng>")
 
 def set_checkin_timerange_cmd(send_text_fn, chat_id, text):
     try:
@@ -260,7 +260,7 @@ def set_checkin_timerange_cmd(send_text_fn, chat_id, text):
 
         send_text_fn(chat_id, f"✅ Waktu check-in `{alias}` diatur ke: *{start_time} - {end_time}*")
     except Exception:
-        send_text_fn(chat_id, "Format:\n/set_checkin_timerange <alias> HH:MM HH:MM")
+        send_text_fn(chat_id, "Format:\nset checkin timerange <alias> HH:MM HH:MM")
 
 def set_checkout_timerange_cmd(send_text_fn, chat_id, text):
     try:
@@ -272,12 +272,12 @@ def set_checkout_timerange_cmd(send_text_fn, chat_id, text):
 
         send_text_fn(chat_id, f"✅ Waktu check-out `{alias}` diatur ke: *{start_time} - {end_time}*")
     except Exception:
-        send_text_fn(chat_id, "Format:\n/set_checkout_timerange <alias> HH:MM HH:MM")
+        send_text_fn(chat_id, "Format:\nset checkout timerange <alias> HH:MM HH:MM")
 
 def auto_cmd(send_text_fn, chat_id, text):
     parts = text.split()
     if len(parts) != 3:
-        return send_text_fn(chat_id, "Format:\n/set_auto on/off <alias>")
+        return send_text_fn(chat_id, "Format:\nset auto on/off <alias>")
 
     _, mode, alias = parts
     enabled = mode.lower() == "on"
