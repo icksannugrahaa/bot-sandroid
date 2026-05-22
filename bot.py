@@ -10,7 +10,7 @@ import requests
 import pyotp
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
-from groq import Groq
+from openai import OpenAI
 
 import storage
 
@@ -25,14 +25,17 @@ OPENWA_API_KEY = os.getenv("OPENWA_API_KEY", "YOUR_API_KEY")
 OPENWA_SESSION_ID = os.getenv("OPENWA_SESSION_ID", "YOUR_SESSION_ID")
 BOT_PORT = int(os.getenv("BOT_PORT", "5000"))
 
-# Groq API configuration
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+# OpenRouter API configuration (Bypasses region locks!)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-# Initialize Groq Client (if configured)
-if GROQ_API_KEY:
-    groq_client = Groq(api_key=GROQ_API_KEY)
+# Initialize OpenRouter Client (if configured)
+if OPENROUTER_API_KEY:
+    ai_client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=OPENROUTER_API_KEY,
+    )
 else:
-    groq_client = None
+    ai_client = None
 
 # ──────────────────────────────────────────────────────────────
 # Logging
@@ -145,8 +148,8 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
 
 def cmd_ai(chat_id: str, raw_body: str) -> None:
     """Handle: ai <message>"""
-    if not groq_client:
-        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure GROQ_API_KEY in the .env file.")
+    if not ai_client:
+        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure OPENROUTER_API_KEY in the .env file.")
         return
 
     # Extract the user's prompt
@@ -158,7 +161,8 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
     prompt = parts[1].strip()
     
     try:
-        response = groq_client.chat.completions.create(
+        response = ai_client.chat.completions.create(
+            model="google/gemini-2.5-flash",
             messages=[
                 {
                     "role": "system",
@@ -169,7 +173,6 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
                     "content": prompt,
                 }
             ],
-            model="llama-3.3-70b-versatile",
             temperature=0.7,
             max_tokens=800,
         )
@@ -177,7 +180,7 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
         reply = response.choices[0].message.content
         send_text(chat_id, reply)
     except Exception as e:
-        logger.error("❌ Groq AI error: %s", e)
+        logger.error("❌ OpenRouter AI error: %s", e)
         send_text(chat_id, f"❌ Sorry, I encountered an error while processing your request.")
 
 
