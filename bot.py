@@ -129,7 +129,8 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
     totp_code = totp.now()
     login_code = f"{creds['password']}{totp_code}"
 
-    send_text(chat_id, f"🔑 Your login code:\n\n```{login_code}```\n\n⏱️ _This code expires in ~30 seconds_")
+    send_text(chat_id, "🔑 Your login code:\n⏱️ _Expires in ~30 seconds_")
+    send_text(chat_id, login_code)
 
 
 # ──────────────────────────────────────────────────────────────
