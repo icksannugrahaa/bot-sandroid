@@ -25,14 +25,14 @@ OPENWA_API_KEY = os.getenv("OPENWA_API_KEY", "YOUR_API_KEY")
 OPENWA_SESSION_ID = os.getenv("OPENWA_SESSION_ID", "YOUR_SESSION_ID")
 BOT_PORT = int(os.getenv("BOT_PORT", "5000"))
 
-# OpenRouter API configuration (Bypasses region locks!)
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+# Hugging Face API configuration (Bypasses region locks, highly stable!)
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 
-# Initialize OpenRouter Client (if configured)
-if OPENROUTER_API_KEY:
+# Initialize AI Client
+if HUGGINGFACE_API_KEY:
     ai_client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=OPENROUTER_API_KEY,
+        base_url="https://api-inference.huggingface.co/v1/",
+        api_key=HUGGINGFACE_API_KEY,
     )
 else:
     ai_client = None
@@ -149,7 +149,7 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
 def cmd_ai(chat_id: str, raw_body: str) -> None:
     """Handle: ai <message>"""
     if not ai_client:
-        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure OPENROUTER_API_KEY in the .env file.")
+        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure HUGGINGFACE_API_KEY in the .env file.")
         return
 
     # Extract the user's prompt
@@ -162,7 +162,7 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
     
     try:
         response = ai_client.chat.completions.create(
-            model="meta-llama/llama-3.3-70b-instruct:free",
+            model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[
                 {
                     "role": "system",
@@ -180,7 +180,7 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
         reply = response.choices[0].message.content
         send_text(chat_id, reply)
     except Exception as e:
-        logger.error("❌ OpenRouter AI error: %s", e)
+        logger.error("❌ HuggingFace AI error: %s", e)
         send_text(chat_id, f"❌ Sorry, I encountered an error while processing your request.")
 
 
