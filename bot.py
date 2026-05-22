@@ -162,7 +162,7 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
     
     try:
         response = ai_client.chat.completions.create(
-            model="deepseek/deepseek-v4-flash:free",
+            model="huggingfaceh4/zephyr-7b-beta:free",
             messages=[
                 {
                     "role": "system",
