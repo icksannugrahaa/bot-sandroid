@@ -49,9 +49,10 @@ def users_cmd(send_text_fn, chat_id):
 
 def adduser_cmd(send_text_fn, chat_id, text):
     try:
-        parts = text.split()
-        if len(parts) == 5:
-            _, alias, username, password, imei = parts
+        content = text[9:].strip() # len("add user ")
+        parts = content.split()
+        if len(parts) == 4:
+            alias, username, password, imei = parts
             add_user(alias, username, password, imei)
             send_text_fn(chat_id, f"✅ User {alias} ditambahkan!")
         else:
@@ -61,8 +62,7 @@ def adduser_cmd(send_text_fn, chat_id, text):
 
 def login_cmd(send_text_fn, chat_id, text):
     try:
-        parts = text.split()
-        alias = parts[1]
+        alias = text[6:].strip() # len("login ")
         user = get_user(alias)
         if not user:
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
@@ -80,8 +80,7 @@ def login_cmd(send_text_fn, chat_id, text):
 
 def register_imei_cmd(send_text_fn, chat_id, text):
     try:
-        parts = text.split()
-        alias = parts[1]
+        alias = text[14:].strip() # len("register imei ")
         user = get_user(alias)
         if not user:
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
@@ -132,18 +131,19 @@ def pulang_cmd(send_text_fn, chat_id, text):
         send_text_fn(chat_id, f"❌ {e}")
 
 def history_cmd(send_text_fn, chat_id, text):
-    parts = text.split()
+    content = text[13:].strip() # len("list history ")
+    parts = content.split()
     mode = None
     alias = None
 
-    if len(parts) == 2:
-        if parts[1] in ("week", "month", "timesheet"):
-            mode = parts[1]
+    if len(parts) == 1:
+        if parts[0] in ("week", "month", "timesheet"):
+            mode = parts[0]
         else:
-            alias = parts[1]
-    elif len(parts) >= 3:
-        mode = parts[1]
-        alias = parts[2]
+            alias = parts[0]
+    elif len(parts) >= 2:
+        mode = parts[1] if parts[1] in ("week", "month", "timesheet") else parts[0]
+        alias = parts[0] if parts[1] in ("week", "month", "timesheet") else parts[1]
 
     users = load_users()
     
@@ -171,7 +171,8 @@ def history_cmd(send_text_fn, chat_id, text):
 
 def setnotes_cmd(send_text_fn, chat_id, text):
     try:
-        _, alias, notes = text.split(maxsplit=2)
+        content = text[10:].strip() # len("set notes ")
+        alias, notes = content.split(maxsplit=1)
         if not set_notes(alias, notes):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
         send_text_fn(chat_id, f"📝 Notes `{alias}` diperbarui:\n{notes}")
@@ -180,7 +181,9 @@ def setnotes_cmd(send_text_fn, chat_id, text):
 
 def clearnotes_cmd(send_text_fn, chat_id, text):
     try:
-        _, alias = text.split()
+        alias = text[12:].strip() # len("clear notes ")
+        if not alias:
+            raise ValueError()
         if not set_notes(alias, None):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
         send_text_fn(chat_id, f"🧹 Notes `{alias}` dihapus")
@@ -211,9 +214,12 @@ def location_list_cmd(send_text_fn, chat_id):
 
 def setlocation_cmd(send_text_fn, chat_id, text):
     try:
-        parts = text.split(maxsplit=2)
-        alias = parts[1]
-        pool = parts[2].lower()
+        content = text[13:].strip() # len("set location ")
+        parts = content.split(maxsplit=1)
+        if len(parts) != 2:
+            raise ValueError()
+        alias = parts[0]
+        pool = parts[1].lower()
 
         available_locations = load_locations()
         sorted_keys = sorted(available_locations.keys())
@@ -235,15 +241,23 @@ def setlocation_cmd(send_text_fn, chat_id, text):
 
 def addlocation_cmd(send_text_fn, chat_id, text):
     try:
-        parts = text.split(maxsplit=2)
-        loc_name = parts[1].lower()
-        latlng_str = parts[2]
+        content = text[13:].strip() # len("add location ")
         
-        latlng = latlng_str.replace(" ", "").split(",")
-        if len(latlng) != 2:
-            return send_text_fn(chat_id, "❌ Format latlng salah.")
+        if "," not in content:
+            raise ValueError()
             
-        lat, lng = float(latlng[0]), float(latlng[1])
+        comma_idx = content.rfind(",")
+        space_idx = content.rfind(" ", 0, comma_idx)
+        
+        if space_idx == -1:
+            raise ValueError()
+            
+        loc_name = content[:space_idx].strip().lower()
+        lat_str = content[space_idx:comma_idx].strip()
+        lng_str = content[comma_idx+1:].strip()
+        
+        lat = float(lat_str)
+        lng = float(lng_str)
         save_location(loc_name, lat, lng)
 
         send_text_fn(chat_id, f"✅ Location `{loc_name}` berhasil ditambahkan.")
@@ -252,8 +266,9 @@ def addlocation_cmd(send_text_fn, chat_id, text):
 
 def set_checkin_timerange_cmd(send_text_fn, chat_id, text):
     try:
-        parts = text.split()
-        alias, start_time, end_time = parts[1], parts[2], parts[3]
+        content = text[22:].strip() # len("set checkin timerange ")
+        parts = content.split()
+        alias, start_time, end_time = parts[0], parts[1], parts[2]
 
         if not set_checkin_timerange(alias, start_time, end_time):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
@@ -264,8 +279,9 @@ def set_checkin_timerange_cmd(send_text_fn, chat_id, text):
 
 def set_checkout_timerange_cmd(send_text_fn, chat_id, text):
     try:
-        parts = text.split()
-        alias, start_time, end_time = parts[1], parts[2], parts[3]
+        content = text[23:].strip() # len("set checkout timerange ")
+        parts = content.split()
+        alias, start_time, end_time = parts[0], parts[1], parts[2]
 
         if not set_checkout_timerange(alias, start_time, end_time):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
@@ -275,11 +291,12 @@ def set_checkout_timerange_cmd(send_text_fn, chat_id, text):
         send_text_fn(chat_id, "Format:\nset checkout timerange <alias> HH:MM HH:MM")
 
 def auto_cmd(send_text_fn, chat_id, text):
-    parts = text.split()
-    if len(parts) != 3:
+    content = text[9:].strip() # len("set auto ")
+    parts = content.split()
+    if len(parts) != 2:
         return send_text_fn(chat_id, "Format:\nset auto on/off <alias>")
 
-    _, mode, alias = parts
+    mode, alias = parts[0], parts[1]
     enabled = mode.lower() == "on"
 
     if not set_automation(alias, enabled):
