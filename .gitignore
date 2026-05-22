@@ -13,6 +13,9 @@ build/
 # Environment variables
 .env
 
+# Database
+bot_data.db
+
 # IDE
 .vscode/
 .idea/

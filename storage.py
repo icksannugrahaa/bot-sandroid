@@ -1,0 +1,130 @@
+"""
+Encrypted SQLite storage for user credentials.
+Passwords and TOTP secrets are encrypted at rest using Fernet (AES-128-CBC).
+"""
+
+import os
+import sqlite3
+import logging
+from datetime import datetime, timezone
+from cryptography.fernet import Fernet, InvalidToken
+
+logger = logging.getLogger(__name__)
+
+# ──────────────────────────────────────────────────────────────
+# Database path
+# ──────────────────────────────────────────────────────────────
+DB_PATH = os.getenv("DB_PATH", "bot_data.db")
+
+
+def _get_fernet() -> Fernet:
+    """Get a Fernet instance using the master encryption key from env."""
+    key = os.getenv("ENCRYPTION_KEY", "")
+    if not key:
+        raise ValueError(
+            "ENCRYPTION_KEY is not set in .env. "
+            "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+        )
+    return Fernet(key.encode())
+
+
+def encrypt(plaintext: str) -> str:
+    """Encrypt a string and return the token as a UTF-8 string."""
+    f = _get_fernet()
+    return f.encrypt(plaintext.encode("utf-8")).decode("utf-8")
+
+
+def decrypt(token: str) -> str:
+    """Decrypt a Fernet token back to the original string."""
+    f = _get_fernet()
+    try:
+        return f.decrypt(token.encode("utf-8")).decode("utf-8")
+    except InvalidToken:
+        logger.error("❌ Failed to decrypt data — ENCRYPTION_KEY may have changed")
+        raise
+
+
+# ──────────────────────────────────────────────────────────────
+# Database initialization
+# ──────────────────────────────────────────────────────────────
+def init_db() -> None:
+    """Create the users table if it doesn't exist."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                phone_number    TEXT PRIMARY KEY,
+                encrypted_pass  TEXT,
+                encrypted_totp  TEXT,
+                created_at      TEXT NOT NULL,
+                updated_at      TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+        logger.info("📦 Database initialized at %s", DB_PATH)
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────────────────────────
+# CRUD operations
+# ──────────────────────────────────────────────────────────────
+def set_password(phone_number: str, password: str) -> None:
+    """Encrypt and store (or update) the password for a phone number."""
+    now = datetime.now(timezone.utc).isoformat()
+    encrypted = encrypt(password)
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO users (phone_number, encrypted_pass, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(phone_number)
+            DO UPDATE SET encrypted_pass = ?, updated_at = ?
+        """, (phone_number, encrypted, now, now, encrypted, now))
+        conn.commit()
+        logger.info("🔐 Password saved for %s", phone_number)
+    finally:
+        conn.close()
+
+
+def set_totp_secret(phone_number: str, totp_secret: str) -> None:
+    """Encrypt and store (or update) the TOTP secret for a phone number."""
+    now = datetime.now(timezone.utc).isoformat()
+    encrypted = encrypt(totp_secret)
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO users (phone_number, encrypted_totp, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(phone_number)
+            DO UPDATE SET encrypted_totp = ?, updated_at = ?
+        """, (phone_number, encrypted, now, now, encrypted, now))
+        conn.commit()
+        logger.info("🔐 TOTP secret saved for %s", phone_number)
+    finally:
+        conn.close()
+
+
+def get_credentials(phone_number: str) -> dict | None:
+    """
+    Retrieve and decrypt the credentials for a phone number.
+    Returns {"password": str, "totp_secret": str} or None if not found.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute(
+            "SELECT encrypted_pass, encrypted_totp FROM users WHERE phone_number = ?",
+            (phone_number,)
+        ).fetchone()
+
+        if not row:
+            return None
+
+        result = {}
+        result["password"] = decrypt(row[0]) if row[0] else None
+        result["totp_secret"] = decrypt(row[1]) if row[1] else None
+        return result
+    finally:
+        conn.close()

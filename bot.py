@@ -7,8 +7,11 @@ and auto-replies using the OpenWA REST API.
 import os
 import logging
 import requests
+import pyotp
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+
+import storage
 
 # Load .env file (must be called before os.getenv)
 load_dotenv()
@@ -66,10 +69,75 @@ def send_text(chat_id: str, text: str) -> dict:
         return {"success": False, "error": str(exc)}
 
 
+# ──────────────────────────────────────────────────────────────
+# Command handlers
+# ──────────────────────────────────────────────────────────────
+def cmd_set_password(chat_id: str, phone: str, raw_body: str) -> None:
+    """Handle: set ambri pass <password>"""
+    # Extract password from the original (non-lowered) message
+    # "set ambri pass myPassword123" → "myPassword123"
+    parts = raw_body.split(maxsplit=3)
+    if len(parts) < 4 or not parts[3].strip():
+        send_text(chat_id, "⚠️ Usage: *set ambri pass <your_password>*")
+        return
+
+    password = parts[3].strip()
+    storage.set_password(phone, password)
+    send_text(chat_id, "✅ Password saved and encrypted successfully!")
+
+
+def cmd_set_totp(chat_id: str, phone: str, raw_body: str) -> None:
+    """Handle: set ambri totp <totp_secret>"""
+    # Extract TOTP secret from the original (non-lowered) message
+    # "set ambri totp 7XCU6AG2..." → "7XCU6AG2..."
+    parts = raw_body.split(maxsplit=3)
+    if len(parts) < 4 or not parts[3].strip():
+        send_text(chat_id, "⚠️ Usage: *set ambri totp <your_totp_secret>*")
+        return
+
+    totp_secret = parts[3].strip()
+
+    # Validate the TOTP secret format
+    try:
+        pyotp.TOTP(totp_secret).now()
+    except Exception:
+        send_text(chat_id, "❌ Invalid TOTP secret. Please provide a valid base32 secret key.")
+        return
+
+    storage.set_totp_secret(phone, totp_secret)
+    send_text(chat_id, "✅ TOTP secret saved and encrypted successfully!")
+
+
+def cmd_generate_code(chat_id: str, phone: str) -> None:
+    """Handle: generate code"""
+    creds = storage.get_credentials(phone)
+
+    if not creds:
+        send_text(chat_id, "⚠️ You haven't set up yet.\nPlease set your password and TOTP secret first:\n\n• *set ambri pass <password>*\n• *set ambri totp <secret>*")
+        return
+
+    if not creds["password"]:
+        send_text(chat_id, "⚠️ Password not set.\nUse: *set ambri pass <password>*")
+        return
+
+    if not creds["totp_secret"]:
+        send_text(chat_id, "⚠️ TOTP secret not set.\nUse: *set ambri totp <secret>*")
+        return
+
+    # Generate the TOTP code and combine with password
+    totp = pyotp.TOTP(creds["totp_secret"])
+    totp_code = totp.now()
+    login_code = f"{creds['password']}{totp_code}"
+
+    send_text(chat_id, f"🔑 Your login code:\n\n`{login_code}`\n\n⏱️ _This code expires in ~30 seconds_")
+
+
+# ──────────────────────────────────────────────────────────────
+# Message router
+# ──────────────────────────────────────────────────────────────
 def handle_message(data: dict) -> None:
     """
     Process an incoming message and decide whether to reply.
-    Add your command/keyword logic here.
     """
     # Log the full incoming data for debugging
     logger.info("📦 Raw message data: %s", data)
@@ -79,19 +147,31 @@ def handle_message(data: dict) -> None:
         logger.info("⏭️ Skipping own message")
         return
 
-    # Extract message details
-    body = (data.get("body") or "").strip().lower()
+    # Keep original body for extracting case-sensitive values (password, totp)
+    raw_body = (data.get("body") or "").strip()
+    body = raw_body.lower()
     from_id = data.get("from", "")
     is_group = data.get("isGroup", False)
 
     # Determine the chat to reply to
-    # For groups, reply to the group; for private chats, reply to the sender
     chat_id = data.get("chatId") or from_id
+
+    # Extract phone number (strip @c.us / @g.us suffix)
+    phone = from_id.split("@")[0] if "@" in from_id else from_id
 
     logger.info("📩 Message from %s (chatId=%s): %s", from_id, chat_id, body)
 
-    # ── Command handlers ─────────────────────────────────────
-    if body == "hello":
+    # ── Command routing ──────────────────────────────────────
+    if body.startswith("set ambri pass"):
+        cmd_set_password(chat_id, phone, raw_body)
+
+    elif body.startswith("set ambri totp"):
+        cmd_set_totp(chat_id, phone, raw_body)
+
+    elif body == "generate code":
+        cmd_generate_code(chat_id, phone)
+
+    elif body == "hello":
         send_text(chat_id, "hello too 👋")
 
     elif body == "ping":
@@ -100,9 +180,14 @@ def handle_message(data: dict) -> None:
     elif body == "help":
         help_text = (
             "🤖 *Bot Commands*\n\n"
+            "📋 *General*\n"
             "• *hello* — Say hello\n"
             "• *ping* — Check if bot is alive\n"
-            "• *help* — Show this help message"
+            "• *help* — Show this help message\n\n"
+            "🔐 *Login Code*\n"
+            "• *set ambri pass <password>* — Set your password\n"
+            "• *set ambri totp <secret>* — Set your TOTP secret\n"
+            "• *generate code* — Get your login code"
         )
         send_text(chat_id, help_text)
 
@@ -142,6 +227,9 @@ def health():
 # Entry point
 # ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    # Initialize the database on startup
+    storage.init_db()
+
     logger.info("=" * 50)
     logger.info("🤖 OpenWA Bot starting...")
     logger.info("   API URL    : %s", OPENWA_BASE_URL)
