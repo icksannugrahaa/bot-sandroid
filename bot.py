@@ -10,8 +10,7 @@ import requests
 import pyotp
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
-from google import genai
-from google.genai import types
+from groq import Groq
 
 import storage
 
@@ -26,14 +25,14 @@ OPENWA_API_KEY = os.getenv("OPENWA_API_KEY", "YOUR_API_KEY")
 OPENWA_SESSION_ID = os.getenv("OPENWA_SESSION_ID", "YOUR_SESSION_ID")
 BOT_PORT = int(os.getenv("BOT_PORT", "5000"))
 
-# Google Gemini configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+# Groq API configuration
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
-# Initialize Gemini Client (if configured)
-if GEMINI_API_KEY:
-    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+# Initialize Groq Client (if configured)
+if GROQ_API_KEY:
+    groq_client = Groq(api_key=GROQ_API_KEY)
 else:
-    gemini_client = None
+    groq_client = None
 
 # ──────────────────────────────────────────────────────────────
 # Logging
@@ -146,8 +145,8 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
 
 def cmd_ai(chat_id: str, raw_body: str) -> None:
     """Handle: ai <message>"""
-    if not gemini_client:
-        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure GEMINI_API_KEY in the .env file.")
+    if not groq_client:
+        send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure GROQ_API_KEY in the .env file.")
         return
 
     # Extract the user's prompt
@@ -159,19 +158,26 @@ def cmd_ai(chat_id: str, raw_body: str) -> None:
     prompt = parts[1].strip()
     
     try:
-        response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction="You are a helpful, friendly AI assistant. Keep your responses concise and well-formatted for WhatsApp.",
-                temperature=0.7,
-            )
+        response = groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful, friendly AI assistant. Keep your responses concise and well-formatted for WhatsApp."
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model="llama3-8b-8192",
+            temperature=0.7,
+            max_tokens=800,
         )
         
-        reply = response.text
+        reply = response.choices[0].message.content
         send_text(chat_id, reply)
     except Exception as e:
-        logger.error("❌ Google Gemini error: %s", e)
+        logger.error("❌ Groq AI error: %s", e)
         send_text(chat_id, f"❌ Sorry, I encountered an error while processing your request.")
 
 
