@@ -4,3 +4,7 @@ python-dotenv>=1.0
 cryptography>=44.0
 pyotp>=2.9
 openai>=1.12.0
+pandas
+openpyxl
+holidays
+tzdata

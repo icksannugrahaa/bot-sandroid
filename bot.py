@@ -13,6 +13,7 @@ from flask import Flask, request, jsonify
 from openai import OpenAI
 
 import storage
+import attendance_handlers as ah
 
 # Load .env file (must be called before os.getenv)
 load_dotenv()
@@ -233,14 +234,70 @@ def handle_message(data: dict) -> None:
             "• *hello* — Say hello\n"
             "• *ping* — Check if bot is alive\n"
             "• *help* — Show this help message\n\n"
+            "🏃‍♂️ *Attendance*\n"
+            "• */checkin [alias]* - Absen masuk\n"
+            "• */checkout [alias]* - Absen pulang\n"
+            "• */list_history [alias] [week/month]* - Cek riwayat\n\n"
+            "⚙️ *Konfigurasi*\n"
+            "• */set_auto on/off [alias]* - Set automasi harian\n"
+            "• */set_checkin_timerange [alias] HH:MM HH:MM* - Waktu acak masuk\n"
+            "• */set_checkout_timerange [alias] HH:MM HH:MM* - Waktu acak pulang\n"
+            "• */set_notes [alias] [notes]* - Custom notes absen\n"
+            "• */clear_notes [alias]* - Reset notes absen\n"
+            "• */set_location [alias] [ID/nama]* - Set lokasi default\n\n"
+            "📍 *Lokasi*\n"
+            "• */list_location* - Lihat daftar semua lokasi\n"
+            "• */add_location [nama] [lat,lng]* - Tambah lokasi baru\n\n"
+            "👥 *User Management*\n"
+            "• */list_users* - Lihat user terdaftar\n"
+            "• */adduser <alias> <user> <pass> <imei>* - Tambah user\n"
+            "• */login [alias]* - Login paksa/refresh token\n"
+            "• */register_imei [alias]* - Daftarkan IMEI saat ini\n"
+            "• */generate_deviceid [alias]* - Generate IMEI baru\n\n"
             "🔐 *Login Code*\n"
             "• *set ambri pass <password>* — Set your password\n"
             "• *set ambri totp <secret>* — Set your TOTP secret\n"
             "• *generate code* — Get your login code\n\n"
             "🧠 *AI Chat*\n"
-            "• _Just send any normal message and the AI will reply!_"
+            "• _Just send any normal message and the AI will reply!_\n\n"
+            "Made with 🤖 and ❤️\n"
+            "By Sandroid"
         )
         send_text(chat_id, help_text)
+
+    # ── Attendance routing ───────────────────────────────────
+    elif body.startswith("/adduser "):
+        ah.adduser_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/login "):
+        ah.login_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/register_imei "):
+        ah.register_imei_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/generate_deviceid"):
+        ah.gendeviceid_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/checkin ") or body == "/checkin":
+        ah.masuk_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/checkout ") or body == "/checkout":
+        ah.pulang_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/list_history"):
+        ah.history_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/set_auto"):
+        ah.auto_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/set_checkin_timerange"):
+        ah.set_checkin_timerange_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/set_checkout_timerange"):
+        ah.set_checkout_timerange_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/set_notes "):
+        ah.setnotes_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/clear_notes "):
+        ah.clearnotes_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("/set_location "):
+        ah.setlocation_cmd(send_text, chat_id, raw_body)
+    elif body == "/list_location":
+        ah.location_list_cmd(send_text, chat_id)
+    elif body.startswith("/add_location "):
+        ah.addlocation_cmd(send_text, chat_id, raw_body)
+    elif body == "/list_users":
+        ah.users_cmd(send_text, chat_id)
         
     else:
         # Default fallback: Treat as an AI prompt
