@@ -1,7 +1,8 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(_env_path)
 
 EMAIL_CONFIG = {
     "smtp_server": os.getenv("SMTP_SERVER", "smtp.gmail.com"),
@@ -31,6 +32,6 @@ _hash_raw = os.getenv("ADMIN_SERVICE_PASSWORD_HASH", "")
 ADMIN_SERVICE_PASSWORD_HASH = _hash_raw.encode() if _hash_raw else b""
 
 SERVICE_NAME = os.getenv("SERVICE_NAME", "attendance-bot")
-_DEFAULT_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+_DEFAULT_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "log")
 LOG_PATH = os.getenv("LOG_PATH", _DEFAULT_LOG_PATH)
 AUDIT_LOG_FILE = os.path.join(LOG_PATH, "audit.log")

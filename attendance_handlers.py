@@ -8,7 +8,9 @@ from users import (
     set_imei,
     load_users,
     set_checkin_timerange,
-    set_checkout_timerange
+    set_checkout_timerange,
+    get_authorized_alias,
+    is_admin
 )
 from location import load_locations, save_location
 import device_utils
@@ -24,7 +26,7 @@ def deny(send_text_fn, chat_id):
     send_text_fn(chat_id, "❌ Akses ditolak")
 
 def users_cmd(send_text_fn, chat_id):
-    users = list_users()
+    users = list_users(chat_id)
     if not users:
         return send_text_fn(chat_id, "Belum ada user.")
 
@@ -53,7 +55,7 @@ def adduser_cmd(send_text_fn, chat_id, text):
         parts = content.split()
         if len(parts) == 4:
             alias, username, password, imei = parts
-            add_user(alias, username, password, imei)
+            add_user(alias, username, password, imei, chat_id)
             send_text_fn(chat_id, f"✅ User {alias} ditambahkan!")
         else:
             raise ValueError()
@@ -62,7 +64,8 @@ def adduser_cmd(send_text_fn, chat_id, text):
 
 def login_cmd(send_text_fn, chat_id, text):
     try:
-        alias = text[6:].strip() # len("login ")
+        alias_arg = text[6:].strip() or None
+        alias = get_authorized_alias(chat_id, alias_arg)
         user = get_user(alias)
         if not user:
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
@@ -80,7 +83,8 @@ def login_cmd(send_text_fn, chat_id, text):
 
 def register_imei_cmd(send_text_fn, chat_id, text):
     try:
-        alias = text[14:].strip() # len("register imei ")
+        alias_arg = text[14:].strip() or None
+        alias = get_authorized_alias(chat_id, alias_arg)
         user = get_user(alias)
         if not user:
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
@@ -102,7 +106,7 @@ def gendeviceid_cmd(send_text_fn, chat_id, text):
         new_imei = device_utils.generate_device_id()
 
         if len(parts) > 1:
-            alias = parts[1]
+            alias = get_authorized_alias(chat_id, parts[1])
             if set_imei(alias, new_imei):
                 send_text_fn(chat_id, f"✅ Device ID (IMEI) baru untuk `{alias}` berhasil dibuat dan disimpan:\n`{new_imei}`\n\nSilahkan jalankan `register imei {alias}`.")
             else:
@@ -115,7 +119,8 @@ def gendeviceid_cmd(send_text_fn, chat_id, text):
 def masuk_cmd(send_text_fn, chat_id, text):
     try:
         parts = text.split()
-        alias = parts[1] if len(parts) > 1 else None
+        alias_arg = parts[1] if len(parts) > 1 else None
+        alias = get_authorized_alias(chat_id, alias_arg)
         msg = check_in(alias)
         send_text_fn(chat_id, msg)
     except Exception as e:
@@ -124,71 +129,75 @@ def masuk_cmd(send_text_fn, chat_id, text):
 def pulang_cmd(send_text_fn, chat_id, text):
     try:
         parts = text.split()
-        alias = parts[1] if len(parts) > 1 else None
+        alias_arg = parts[1] if len(parts) > 1 else None
+        alias = get_authorized_alias(chat_id, alias_arg)
         msg = check_out(alias)
         send_text_fn(chat_id, msg)
     except Exception as e:
         send_text_fn(chat_id, f"❌ {e}")
 
 def history_cmd(send_text_fn, chat_id, text):
-    content = text[13:].strip() # len("list history ")
-    parts = content.split()
-    mode = None
-    alias = None
+    try:
+        content = text[13:].strip() # len("list history ")
+        parts = content.split()
+        mode = None
+        alias_arg = None
 
-    if len(parts) == 1:
-        if parts[0] in ("week", "month", "timesheet"):
-            mode = parts[0]
-        else:
-            alias = parts[0]
-    elif len(parts) >= 2:
-        mode = parts[1] if parts[1] in ("week", "month", "timesheet") else parts[0]
-        alias = parts[0] if parts[1] in ("week", "month", "timesheet") else parts[1]
+        if len(parts) == 1:
+            if parts[0] in ("week", "month", "timesheet"):
+                mode = parts[0]
+            else:
+                alias_arg = parts[0]
+        elif len(parts) >= 2:
+            mode = parts[1] if parts[1] in ("week", "month", "timesheet") else parts[0]
+            alias_arg = parts[0] if parts[1] in ("week", "month", "timesheet") else parts[1]
 
-    users = load_users()
-    
-    if mode == "timesheet":
-        if not alias or alias not in users:
-            return send_text_fn(chat_id, "❌ User tidak ditemukan atau format salah. list history timesheet <alias>")
+        users = list_users(chat_id)
         
-        try:
+        if mode == "timesheet":
+            alias = get_authorized_alias(chat_id, alias_arg)
             file_path = generate_timesheet_excel(alias)
-            # send_document is needed in bot.py, here we'll just return the path for now or inform user
-            # Since send_text doesn't support documents, we'll need to update bot.py to support send_file
             send_text_fn(chat_id, f"✅ Timesheet generated at: {file_path}")
-        except Exception as e:
-            send_text_fn(chat_id, f"❌ Gagal generate timesheet: {e}")
-        return
+            return
 
-    msg = ""
-    if alias:
-        msg = get_history_for_user(alias, mode)
-    else:
-        for a in users:
-            msg += get_history_for_user(a, mode) + "\n"
+        msg = ""
+        if alias_arg:
+            alias = get_authorized_alias(chat_id, alias_arg)
+            msg = get_history_for_user(alias, mode)
+        else:
+            if not users:
+                return send_text_fn(chat_id, "Tidak ada data (Belum ada alias yang didaftarkan).")
+            for a in users:
+                msg += get_history_for_user(a, mode) + "\n"
 
-    send_text_fn(chat_id, msg or "Tidak ada data")
+        send_text_fn(chat_id, msg or "Tidak ada data")
+    except Exception as e:
+        send_text_fn(chat_id, f"❌ Gagal mengambil history: {e}")
 
 def setnotes_cmd(send_text_fn, chat_id, text):
     try:
         content = text[10:].strip() # len("set notes ")
-        alias, notes = content.split(maxsplit=1)
+        alias_arg, notes = content.split(maxsplit=1)
+        alias = get_authorized_alias(chat_id, alias_arg)
+        
         if not set_notes(alias, notes):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
         send_text_fn(chat_id, f"📝 Notes `{alias}` diperbarui:\n{notes}")
     except ValueError:
         send_text_fn(chat_id, "Format:\nset notes <alias> <pesan>")
+    except Exception as e:
+        send_text_fn(chat_id, f"❌ {e}")
 
 def clearnotes_cmd(send_text_fn, chat_id, text):
     try:
-        alias = text[12:].strip() # len("clear notes ")
-        if not alias:
-            raise ValueError()
+        alias_arg = text[12:].strip() or None
+        alias = get_authorized_alias(chat_id, alias_arg)
+        
         if not set_notes(alias, None):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
         send_text_fn(chat_id, f"🧹 Notes `{alias}` dihapus")
-    except ValueError:
-        send_text_fn(chat_id, "Format:\nclear notes <alias>")
+    except Exception as e:
+        send_text_fn(chat_id, f"❌ {e}")
 
 def location_list_cmd(send_text_fn, chat_id):
     locations = load_locations()
@@ -216,10 +225,14 @@ def setlocation_cmd(send_text_fn, chat_id, text):
     try:
         content = text[13:].strip() # len("set location ")
         parts = content.split(maxsplit=1)
-        if len(parts) != 2:
+        if len(parts) == 1:
+            alias = get_authorized_alias(chat_id, None)
+            pool = parts[0].lower()
+        elif len(parts) == 2:
+            alias = get_authorized_alias(chat_id, parts[0])
+            pool = parts[1].lower()
+        else:
             raise ValueError()
-        alias = parts[0]
-        pool = parts[1].lower()
 
         available_locations = load_locations()
         sorted_keys = sorted(available_locations.keys())
@@ -236,10 +249,13 @@ def setlocation_cmd(send_text_fn, chat_id, text):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
 
         send_text_fn(chat_id, f"📍 Location pool `{alias}` diubah ke: *{pool.upper()}*")
-    except Exception:
-        send_text_fn(chat_id, "Format:\nset location <alias> <name_or_id>")
+    except Exception as e:
+        send_text_fn(chat_id, f"❌ {e}")
 
 def addlocation_cmd(send_text_fn, chat_id, text):
+    if not is_admin(chat_id):
+        return deny(send_text_fn, chat_id)
+        
     try:
         content = text[13:].strip() # len("add location ")
         
@@ -268,40 +284,61 @@ def set_checkin_timerange_cmd(send_text_fn, chat_id, text):
     try:
         content = text[22:].strip() # len("set checkin timerange ")
         parts = content.split()
-        alias, start_time, end_time = parts[0], parts[1], parts[2]
+        if len(parts) == 2:
+            alias = get_authorized_alias(chat_id, None)
+            start_time, end_time = parts[0], parts[1]
+        elif len(parts) == 3:
+            alias = get_authorized_alias(chat_id, parts[0])
+            start_time, end_time = parts[1], parts[2]
+        else:
+            raise ValueError("Format salah")
 
         if not set_checkin_timerange(alias, start_time, end_time):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
 
         send_text_fn(chat_id, f"✅ Waktu check-in `{alias}` diatur ke: *{start_time} - {end_time}*")
-    except Exception:
-        send_text_fn(chat_id, "Format:\nset checkin timerange <alias> HH:MM HH:MM")
+    except Exception as e:
+        send_text_fn(chat_id, f"❌ {e}")
 
 def set_checkout_timerange_cmd(send_text_fn, chat_id, text):
     try:
         content = text[23:].strip() # len("set checkout timerange ")
         parts = content.split()
-        alias, start_time, end_time = parts[0], parts[1], parts[2]
+        if len(parts) == 2:
+            alias = get_authorized_alias(chat_id, None)
+            start_time, end_time = parts[0], parts[1]
+        elif len(parts) == 3:
+            alias = get_authorized_alias(chat_id, parts[0])
+            start_time, end_time = parts[1], parts[2]
+        else:
+            raise ValueError("Format salah")
 
         if not set_checkout_timerange(alias, start_time, end_time):
             return send_text_fn(chat_id, "❌ User tidak ditemukan")
 
         send_text_fn(chat_id, f"✅ Waktu check-out `{alias}` diatur ke: *{start_time} - {end_time}*")
-    except Exception:
-        send_text_fn(chat_id, "Format:\nset checkout timerange <alias> HH:MM HH:MM")
+    except Exception as e:
+        send_text_fn(chat_id, f"❌ {e}")
 
 def auto_cmd(send_text_fn, chat_id, text):
-    content = text[9:].strip() # len("set auto ")
-    parts = content.split()
-    if len(parts) != 2:
-        return send_text_fn(chat_id, "Format:\nset auto on/off <alias>")
+    try:
+        content = text[9:].strip() # len("set auto ")
+        parts = content.split()
+        if len(parts) == 1:
+            mode = parts[0]
+            alias = get_authorized_alias(chat_id, None)
+        elif len(parts) == 2:
+            mode = parts[0]
+            alias = get_authorized_alias(chat_id, parts[1])
+        else:
+            return send_text_fn(chat_id, "Format:\nset auto on/off <alias>")
 
-    mode, alias = parts[0], parts[1]
-    enabled = mode.lower() == "on"
+        enabled = mode.lower() == "on"
 
-    if not set_automation(alias, enabled):
-        return send_text_fn(chat_id, "❌ User tidak ditemukan")
+        if not set_automation(alias, enabled):
+            return send_text_fn(chat_id, "❌ User tidak ditemukan")
 
-    status = "AKTIF" if enabled else "NONAKTIF"
-    send_text_fn(chat_id, f"⚙️ Automation `{alias}`: {status}")
-
+        status = "AKTIF" if enabled else "NONAKTIF"
+        send_text_fn(chat_id, f"⚙️ Automation `{alias}`: {status}")
+    except Exception as e:
+        send_text_fn(chat_id, f"❌ {e}")

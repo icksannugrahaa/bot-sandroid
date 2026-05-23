@@ -25,3 +25,6 @@ bot_data.db
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+log/

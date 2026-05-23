@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────
 # Database path
 # ──────────────────────────────────────────────────────────────
-DB_PATH = os.getenv("DB_PATH", "bot_data.db")
+_DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_data.db")
+DB_PATH = os.getenv("DB_PATH", _DEFAULT_DB_PATH)
 
 
 def _ensure_encryption_key() -> str:
@@ -97,9 +98,14 @@ def init_db() -> None:
                 location_pool TEXT,
                 checkin_timerange TEXT,
                 checkout_timerange TEXT,
-                notes TEXT
+                notes TEXT,
+                owner_chat_id TEXT
             )
         """)
+        try:
+            conn.execute("ALTER TABLE attendance_users ADD COLUMN owner_chat_id TEXT")
+        except sqlite3.OperationalError:
+            pass # column already exists
         conn.execute("""
             CREATE TABLE IF NOT EXISTS attendance_locations (
                 name TEXT PRIMARY KEY,
@@ -209,7 +215,8 @@ def get_attendance_users() -> dict:
                 "location_pool": r["location_pool"],
                 "checkin_timerange": r["checkin_timerange"],
                 "checkout_timerange": r["checkout_timerange"],
-                "notes": r["notes"]
+                "notes": r["notes"],
+                "owner_chat_id": r["owner_chat_id"] if "owner_chat_id" in r.keys() else None
             }
         return users
     finally:
@@ -228,8 +235,8 @@ def upsert_attendance_user(alias: str, data: dict) -> None:
         conn.execute("""
             INSERT INTO attendance_users (
                 alias, username, password, imei, active, automation, 
-                location_pool, checkin_timerange, checkout_timerange, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                location_pool, checkin_timerange, checkout_timerange, notes, owner_chat_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(alias) DO UPDATE SET
                 username=excluded.username,
                 password=excluded.password,
@@ -239,7 +246,8 @@ def upsert_attendance_user(alias: str, data: dict) -> None:
                 location_pool=excluded.location_pool,
                 checkin_timerange=excluded.checkin_timerange,
                 checkout_timerange=excluded.checkout_timerange,
-                notes=excluded.notes
+                notes=excluded.notes,
+                owner_chat_id=excluded.owner_chat_id
         """, (
             alias,
             data.get("username"),
@@ -250,7 +258,8 @@ def upsert_attendance_user(alias: str, data: dict) -> None:
             data.get("location_pool", "kanpus"),
             data.get("checkin_timerange"),
             data.get("checkout_timerange"),
-            data.get("notes")
+            data.get("notes"),
+            data.get("owner_chat_id")
         ))
         conn.commit()
     finally:

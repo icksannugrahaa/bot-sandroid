@@ -46,21 +46,6 @@ def _headers(token: dict) -> dict:
     }
 
 
-def _resolve_alias(alias: str | None) -> str:
-    """
-    Jika alias None → pakai default user
-    """
-    if alias:
-        return alias
-
-    users = load_users()
-    for a, u in users.items():
-        if u.get("username") == DEFAULT_USERNAME:
-            return a
-
-    raise Exception("Default user tidak ditemukan")
-
-
 def _get_user(alias: str) -> dict:
     users = load_users()
     if alias not in users:
@@ -174,8 +159,7 @@ def _parse_time_range(timerange_str: str | None, default_range: tuple) -> tuple:
 # CHECK IN
 # ======================
 
-def check_in(alias: str | None = None) -> str:
-    alias = _resolve_alias(alias)
+def check_in(alias: str) -> str:
     user = _get_user(alias)
 
     token = load_token(alias)
@@ -221,8 +205,7 @@ def check_in(alias: str | None = None) -> str:
 # CHECK OUT
 # ======================
 
-def check_out(alias: str | None = None) -> str:
-    alias = _resolve_alias(alias)
+def check_out(alias: str) -> str:
 
     token = load_token(alias)
     if not token or is_token_expired(token):
