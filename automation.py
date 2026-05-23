@@ -311,14 +311,32 @@ def run_nightly_check():
         bot_log("[NIGHTLY] Tidak ada user terdaftar, skip.")
         return
 
-    notified_count = 0
+    # Kumpulkan unique owner_chat_id
+    owners = set()
     for alias, user in users.items():
+        owner = user.get("owner_chat_id")
+        if owner:
+            owners.add(owner)
+            
+    # Buat pesan umum untuk besok
+    tomorrow = now_dt.date() + timedelta(days=1)
+    is_weekend = tomorrow.weekday() >= 5
+    holiday_name = ID_HOLIDAYS.get(tomorrow)
+    
+    if is_weekend or holiday_name:
+        reason = holiday_name if holiday_name else "Akhir Pekan"
+        msg = f"🌙 *Nightly Update*\nBesok adalah *{reason}*.\nBot absen otomatis *TIDAK* akan berjalan besok."
+    else:
+        msg = f"🌙 *Nightly Update*\nBesok adalah hari kerja biasa.\nBot absen otomatis *AKAN* berjalan sesuai jadwal besok pagi."
+
+    notified_count = 0
+    for chat_id in owners:
         try:
-            notify_tomorrow_status(alias, now_dt, context='nightly')
+            send_text(chat_id, msg)
             notified_count += 1
         except Exception as e:
-            bot_log(f"[NIGHTLY] Error notifikasi {alias}: {e}")
-            notify_error(f"Nightly notif gagal untuk {alias}\n{e}", alias)
+            bot_log(f"[NIGHTLY] Error notifikasi chat_id {chat_id}: {e}")
+            notify_error(f"Nightly notif gagal untuk {chat_id}\n{e}")
 
     if notified_count == 0:
         bot_log("[NIGHTLY] Tidak ada notifikasi yang dikirim.")
