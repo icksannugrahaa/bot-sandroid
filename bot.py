@@ -27,6 +27,9 @@ load_dotenv(_env_path)
 from whatsapp import send_text, OPENWA_BASE_URL, OPENWA_SESSION_ID
 BOT_PORT = int(os.getenv("BOT_PORT", "5000"))
 BOT_PHONE = os.getenv("BOT_PHONE", "")
+# WhatsApp LID (Linked ID) — the internal ID WhatsApp uses for @mentions
+# Find it in the logs: the body will show @<LID> when someone tags the bot
+BOT_LID = os.getenv("BOT_LID", "")
 
 # GitHub Models configuration (Runs natively on Azure!)
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
@@ -209,12 +212,19 @@ def handle_message(data: dict) -> None:
     # In group chats, only respond when the bot is @mentioned.
     # Strip the @mention tag from the message so commands parse normally.
     if is_group:
-        mentioned_jids = data.get("mentionedJidList") or []
+        mentioned_jids = (
+            data.get("mentionedJidList")
+            or data.get("mentionedJids")
+            or []
+        )
         bot_jid = f"{BOT_PHONE}@c.us" if BOT_PHONE else ""
 
-        # Check if bot is mentioned (via mentionedJidList or @phone in body)
+        # WhatsApp uses LID (Linked ID) for @mentions in the body,
+        # e.g. "@39656188063751 hello" instead of "@628xxx hello".
+        # Check both BOT_LID and BOT_PHONE for compatibility.
         bot_mentioned = (
             (bot_jid and bot_jid in mentioned_jids)
+            or (BOT_LID and f"@{BOT_LID}" in raw_body)
             or (BOT_PHONE and f"@{BOT_PHONE}" in raw_body)
         )
 
@@ -222,12 +232,13 @@ def handle_message(data: dict) -> None:
             logger.info("⏭️ Group message without bot mention, skipping")
             return
 
-        # Strip the @mention tag from the message body
-        # WhatsApp mentions can appear as @628xxx or @Contact Name
-        if BOT_PHONE and f"@{BOT_PHONE}" in raw_body:
+        # Strip the @mention tag from the message body so commands parse cleanly
+        if BOT_LID and f"@{BOT_LID}" in raw_body:
+            raw_body = raw_body.replace(f"@{BOT_LID}", "").strip()
+        elif BOT_PHONE and f"@{BOT_PHONE}" in raw_body:
             raw_body = raw_body.replace(f"@{BOT_PHONE}", "").strip()
         else:
-            # Fallback: strip the first @mention token (handles display-name mentions)
+            # Fallback: strip the first @mention token
             raw_body = re.sub(r"@\S+", "", raw_body, count=1).strip()
 
     body = raw_body.lower()
