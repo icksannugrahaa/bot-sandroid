@@ -7,13 +7,21 @@ from users import is_admin
 logger = logging.getLogger(__name__)
 
 def clean_number(num_str: str) -> str:
+    # If the user provides a full ID with @ (like @lid or @c.us), preserve the domain
+    if "@" in num_str:
+        num_part, domain_part = num_str.split("@", 1)
+        cleaned_num = re.sub(r'\D', '', num_part)
+        if not cleaned_num: return ""
+        if cleaned_num.startswith("08"):
+            cleaned_num = "628" + cleaned_num[2:]
+        return f"{cleaned_num}@{domain_part}"
+    
+    # Otherwise, assume it's a regular phone number and append @c.us
     cleaned = re.sub(r'\D', '', num_str)
     if not cleaned: return ""
     if cleaned.startswith("08"):
         cleaned = "628" + cleaned[2:]
-    if not cleaned.endswith("@c.us"):
-        cleaned += "@c.us"
-    return cleaned
+    return f"{cleaned}@c.us"
 
 def group_create_cmd(send_text, chat_id, raw_body):
     parts = raw_body.split()
