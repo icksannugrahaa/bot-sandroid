@@ -195,6 +195,48 @@ def cmd_ai(chat_id: str, prompt: str, media: dict = None) -> None:
         send_text(chat_id, f"❌ Sorry, I encountered an error while processing your request.")
 
 
+def cmd_spam(chat_id: str, raw_body: str, sender_id: str) -> None:
+    """Handle: spam <nomor_wa> [jumlah]"""
+    parts = raw_body.split()
+    if len(parts) < 2:
+        send_text(chat_id, "⚠️ Usage: *spam <nomor_wa> [jumlah]*\nContoh: *spam 628123456789 3*\n_(Maksimal 5 untuk mencegah ban)_")
+        return
+        
+    target = parts[1].strip()
+    import re
+    target = re.sub(r'\D', '', target)
+    if not target:
+        return send_text(chat_id, "⚠️ Nomor tidak valid.")
+        
+    target_chat_id = f"{target}@c.us"
+    
+    count = 3
+    if len(parts) >= 3 and parts[2].isdigit():
+        count = int(parts[2])
+        
+    # LIMIT MAX SPAM
+    MAX_SPAM = 5
+    if count > MAX_SPAM:
+        send_text(chat_id, f"⚠️ Jumlah terlalu banyak! Dibatasi maksimal {MAX_SPAM} pesan untuk mencegah bot dibanned.")
+        count = MAX_SPAM
+        
+    if count < 1:
+        count = 1
+
+    sender_name = sender_id.split('@')[0]
+    
+    send_text(chat_id, f"⏳ Sedang mengirim {count} pesan ke {target}...")
+    
+    def _spam_worker():
+        import time
+        for i in range(count):
+            send_text(target_chat_id, f"🚨 *PANGGILAN URGENT!* 🚨\nKamu dipanggil oleh wa.me/{sender_name}! Tolong cek WhatsApp sekarang. ({i+1}/{count})")
+            time.sleep(2)
+        send_text(chat_id, f"✅ Selesai mengirim {count} pesan ke {target}")
+
+    threading.Thread(target=_spam_worker).start()
+
+
 # ──────────────────────────────────────────────────────────────
 # "Who made the bot?" detector
 # ──────────────────────────────────────────────────────────────
@@ -331,6 +373,9 @@ def handle_message(data: dict) -> None:
 
     elif body == "ping":
         send_text(chat_id, "pong 🏓")
+        
+    elif body.startswith("spam "):
+        cmd_spam(chat_id, raw_body, sender_id)
 
     elif body == "help":
         help_text = (
@@ -338,6 +383,7 @@ def handle_message(data: dict) -> None:
             "📋 *General*\n"
             "• *hello* — Say hello\n"
             "• *ping* — Check if bot is alive\n"
+            "• *spam <nomor> [jumlah]* — Spam pesan (max 5)\n"
             "• *help* — Show this help message\n\n"
             "🏃‍♂️ *Attendance*\n"
             "• *checkin [alias]* - Absen masuk\n"
