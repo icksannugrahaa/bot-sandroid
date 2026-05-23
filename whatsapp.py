@@ -49,12 +49,10 @@ def send_file(chat_id: str, base64_data: str, mimetype: str, filename: str, capt
         "X-API-Key": OPENWA_API_KEY,
     }
     
-    # OpenWA requires the file to be a data URI
-    data_uri = f"data:{mimetype};base64,{base64_data}"
-    
     payload = {
         "chatId": chat_id,
-        "document": { "base64": data_uri },
+        "base64": base64_data,
+        "mimetype": mimetype,
         "filename": filename,
         "caption": caption
     }
