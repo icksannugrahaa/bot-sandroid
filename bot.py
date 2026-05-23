@@ -57,6 +57,21 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
+# ──────────────────────────────────────────────────────────────
+# Maintenance mode
+# ──────────────────────────────────────────────────────────────
+_maintenance_mode = False
+
+
+def is_maintenance() -> bool:
+    return _maintenance_mode
+
+
+def set_maintenance(enabled: bool) -> None:
+    global _maintenance_mode
+    _maintenance_mode = enabled
+    logger.info("🔧 Maintenance mode %s", "ENABLED" if enabled else "DISABLED")
+
 
 # Removed send_text in favor of whatsapp.py
 
@@ -181,6 +196,31 @@ def cmd_ai(chat_id: str, prompt: str, media: dict = None) -> None:
 
 
 # ──────────────────────────────────────────────────────────────
+# "Who made the bot?" detector
+# ──────────────────────────────────────────────────────────────
+_CREATOR_PATTERNS = [
+    # English patterns
+    r"who\s+(made|create[ds]?|built|develop(ed|s)?|wrote|own[s]?|design(ed|s)?)\s.*(bot|this)",
+    r"who\s+(is|are)\s+(the\s+)?(creator|maker|developer|author|owner)\s*(of\s+)?(this\s+)?(bot)?",
+    r"who.*(made|create[ds]?|built|develop(ed)?)\s*(this\s+)?(bot|you)",
+    r"(bot|you).*(made|created|built|developed)\s+by\s+who",
+
+    # Indonesian patterns
+    r"siapa\s+(yang\s+)?(buat|bikin|develop|ngembangin|kembang(in|kan)?|ciptain|ciptakan|biki?n)\s*(bot|ini)",
+    r"(bot|ini)\s+(di)?(buat|bikin|develop|kembang(in|kan)?)\s+(oleh\s+)?siapa",
+    r"(bot|ini)\s+buatan\s+(siapa|mana)",
+    r"(pembuat|pencipta|developer|creator)\s*(bot|nya)\s*(siapa|ini)",
+    r"siapa\s+(pembuat|pencipta|developer|creator)\s*(bot|nya)?",
+]
+_CREATOR_RE = re.compile("|".join(f"({p})" for p in _CREATOR_PATTERNS), re.IGNORECASE)
+
+
+def _is_asking_about_creator(text: str) -> bool:
+    """Return True if the message is asking who made/created the bot."""
+    return bool(_CREATOR_RE.search(text))
+
+
+# ──────────────────────────────────────────────────────────────
 # Message router
 # ──────────────────────────────────────────────────────────────
 def handle_message(data: dict) -> None:
@@ -203,10 +243,14 @@ def handle_message(data: dict) -> None:
     # Determine the chat to reply to
     chat_id = data.get("chatId") or from_id
 
+    # In group chats, the actual sender is in 'sender' or 'author', not 'from'
+    # In private chats, 'from' is the sender
+    sender_id = data.get("sender") or data.get("author") or from_id
+
     # Extract phone number (strip @c.us / @g.us suffix)
     phone = from_id.split("@")[0] if "@" in from_id else from_id
 
-    logger.info("📩 Message from %s (chatId=%s): %s", from_id, chat_id, raw_body)
+    logger.info("📩 Message from %s (sender=%s, chatId=%s): %s", from_id, sender_id, chat_id, raw_body)
 
     # ── Group mention filter ─────────────────────────────────
     # In group chats, only respond when the bot is @mentioned.
@@ -242,6 +286,35 @@ def handle_message(data: dict) -> None:
             raw_body = re.sub(r"@\S+", "", raw_body, count=1).strip()
 
     body = raw_body.lower()
+
+    # ── Determine if sender is admin ────────────────────────
+    from users import is_admin
+    user_is_admin = is_admin(chat_id) or is_admin(sender_id)
+
+    # ── Maintenance mode commands (admin only) ────────────────
+    if body == "maintenance on":
+        if not user_is_admin:
+            return send_text(chat_id, "❌ Akses ditolak. Hanya admin yang bisa mengubah mode maintenance.")
+        set_maintenance(True)
+        return send_text(chat_id, "🔧 *Maintenance mode AKTIF*\n\nBot tidak akan merespons pengguna biasa sampai maintenance dimatikan.")
+
+    elif body == "maintenance off":
+        if not user_is_admin:
+            return send_text(chat_id, "❌ Akses ditolak. Hanya admin yang bisa mengubah mode maintenance.")
+        set_maintenance(False)
+        return send_text(chat_id, "✅ *Maintenance mode NONAKTIF*\n\nBot kembali aktif untuk semua pengguna.")
+
+    elif body == "maintenance status":
+        if not user_is_admin:
+            return send_text(chat_id, "❌ Akses ditolak.")
+        status = "🔧 AKTIF" if is_maintenance() else "✅ NONAKTIF"
+        return send_text(chat_id, f"Status maintenance: {status}")
+
+    # ── Maintenance mode gate ─────────────────────────────────
+    # Block non-admin users when maintenance is active
+    if is_maintenance() and not user_is_admin:
+        send_text(chat_id, "🔧 *Bot sedang dalam maintenance*\n\nMohon maaf, bot sedang dalam perbaikan. Silakan coba lagi nanti. 🙏")
+        return
 
     # ── Command routing ──────────────────────────────────────
     if body.startswith("set ambri pass "):
@@ -292,6 +365,10 @@ def handle_message(data: dict) -> None:
             "• *generate code* — Get your login code\n\n"
             "🧠 *AI Chat*\n"
             "• _Just send any normal message and the AI will reply!_\n\n"
+            "🔧 *Maintenance (Admin)*\n"
+            "• *maintenance on* — Aktifkan mode maintenance\n"
+            "• *maintenance off* — Matikan mode maintenance\n"
+            "• *maintenance status* — Cek status maintenance\n\n"
             "Made with 🤖 and ❤️\n"
             "By Sandroid"
         )
@@ -330,7 +407,11 @@ def handle_message(data: dict) -> None:
         ah.addlocation_cmd(send_text, chat_id, raw_body)
     elif body == "list users":
         ah.users_cmd(send_text, chat_id)
-        
+
+    # ── "Who made the bot?" detector ────────────────────────
+    elif _is_asking_about_creator(body):
+        send_text(chat_id, "🤖 Bot ini dibuat oleh *Sandroid* ✨\n\nMade with 🤖 and ❤️")
+
     else:
         # Default fallback: Treat as an AI prompt
         cmd_ai(chat_id, raw_body, data.get("media"))
