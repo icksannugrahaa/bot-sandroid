@@ -16,8 +16,10 @@ import threading
 
 import storage
 import attendance_handlers as ah
+import group_handlers as gh
 from users import is_admin
 import rbac
+import whatsapp
 
 # Load .env file (must be called before os.getenv)
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -313,6 +315,14 @@ def handle_message(data: dict) -> None:
     # In group chats, the actual sender is in 'sender' or 'author', not 'from'
     # In private chats, 'from' is the sender
     sender_id = data.get("sender") or data.get("author") or from_id
+    
+    # ── Mute intercept ───────────────────────────────────────
+    if is_group and storage.is_muted(chat_id, sender_id):
+        logger.info("🔇 Message from muted user %s in %s. Deleting.", sender_id, chat_id)
+        msg_id = data.get("id")
+        if msg_id:
+            whatsapp.delete_message(msg_id, for_everyone=True)
+        return
 
     # Extract phone number (strip @c.us / @g.us suffix)
     phone = from_id.split("@")[0] if "@" in from_id else from_id
@@ -463,6 +473,22 @@ def handle_message(data: dict) -> None:
             lines.append("• *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC")
             lines.append("• *set role <nomor> <role>* — Ubah role pengguna\n")
 
+        if rbac.has_permission(sender_id, "group_management"):
+            lines.append("👥 *Group Management*")
+            lines.append("• *group create <nama> [nomor1,nomor2]*")
+            lines.append("• *group update <nama> | <deskripsi>* (atau +gambar)")
+            lines.append("• *group users* — List member")
+            lines.append("• *group leave* — Keluar dari grup\n")
+
+        if rbac.has_permission(sender_id, "admin_group"):
+            lines.append("🛡️ *Admin Group*")
+            lines.append("• *admin add <nomor>* — Jadikan admin")
+            lines.append("• *admin remove <nomor>* — Hapus admin")
+            lines.append("• *user add <nomor>* — Tambah member")
+            lines.append("• *user kick <nomor>* — Keluarkan member")
+            lines.append("• *user mute <nomor>* — Bisu user (pesan otomatis dihapus)")
+            lines.append("• *user unmute <nomor>* — Batal bisu user\n")
+
         if rbac.has_permission(sender_id, "ai"):
             lines.append("🧠 *AI Chat*")
             lines.append("• _Just send any normal message and the AI will reply!_\n")
@@ -527,6 +553,39 @@ def handle_message(data: dict) -> None:
     elif body == "list users":
         if check_rbac("user_management"):
             ah.users_cmd(send_text, chat_id)
+
+    # ── Group & Admin routing ───────────────────────────────────
+    elif body.startswith("group create "):
+        if check_rbac("group_management"):
+            gh.group_create_cmd(send_text, chat_id, raw_body)
+    elif body.startswith("group update"):
+        if check_rbac("group_management"):
+            gh.group_update_cmd(send_text, chat_id, raw_body, data)
+    elif body == "group users":
+        if check_rbac("group_management"):
+            gh.group_users_cmd(send_text, chat_id, data)
+    elif body == "group leave":
+        if check_rbac("group_management"):
+            gh.group_leave_cmd(send_text, chat_id, data)
+            
+    elif body.startswith("admin add "):
+        if check_rbac("admin_group"):
+            gh.admin_add_cmd(send_text, chat_id, raw_body, data)
+    elif body.startswith("admin remove "):
+        if check_rbac("admin_group"):
+            gh.admin_remove_cmd(send_text, chat_id, raw_body, data)
+    elif body.startswith("user add "):
+        if check_rbac("admin_group"):
+            gh.user_add_cmd(send_text, chat_id, raw_body, data)
+    elif body.startswith("user kick "):
+        if check_rbac("admin_group"):
+            gh.user_kick_cmd(send_text, chat_id, raw_body, data)
+    elif body.startswith("user mute "):
+        if check_rbac("admin_group"):
+            gh.user_mute_cmd(send_text, chat_id, raw_body, data)
+    elif body.startswith("user unmute "):
+        if check_rbac("admin_group"):
+            gh.user_unmute_cmd(send_text, chat_id, raw_body, data)
 
     # ── RBAC routing ─────────────────────────────────────────
     elif body == "rbac list users":

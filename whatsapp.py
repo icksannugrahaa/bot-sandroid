@@ -72,3 +72,123 @@ def send_file(chat_id: str, base64_data: str, mimetype: str, filename: str, capt
     except requests.RequestException as exc:
         logger.error("❌ Request failed for %s: %s", chat_id, exc)
         return {"success": False, "error": str(exc)}
+
+def create_group(name: str, participants: list) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {"name": name, "participants": participants}
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to create group: %s", exc)
+        return {"success": False, "error": str(exc)}
+
+def update_group(group_id: str, name: str = None, description: str = None) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {}
+    if name: payload["name"] = name
+    if description: payload["description"] = description
+    try:
+        resp = requests.patch(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to update group %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
+
+def get_group_info(group_id: str) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}"
+    headers = {"X-API-Key": OPENWA_API_KEY}
+    try:
+        resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to get group info %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
+
+def leave_group(group_id: str) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}"
+    headers = {"X-API-Key": OPENWA_API_KEY}
+    try:
+        resp = requests.delete(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to leave group %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
+
+def add_group_admin(group_id: str, participants: list) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/admins"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {"participants": participants}
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to add admin to group %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
+
+def remove_group_admin(group_id: str, participants: list) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/admins"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {"participants": participants}
+    try:
+        resp = requests.delete(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to remove admin from group %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
+
+def add_group_participant(group_id: str, participants: list) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {"participants": participants}
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to add participant to group %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
+
+def remove_group_participant(group_id: str, participants: list) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {"participants": participants}
+    try:
+        resp = requests.delete(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to remove participant from group %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
+
+def delete_message(message_id: str, for_everyone: bool = True) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/messages/{message_id}?forEveryone={str(for_everyone).lower()}"
+    headers = {"X-API-Key": OPENWA_API_KEY}
+    try:
+        resp = requests.delete(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to delete message %s: %s", message_id, exc)
+        return {"success": False, "error": str(exc)}
+
+def update_group_picture(group_id: str, base64_data: str, mimetype: str) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/picture"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {"base64": base64_data, "mimetype": mimetype}
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        logger.error("❌ Failed to update group picture %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
+

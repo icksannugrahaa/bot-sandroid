@@ -145,6 +145,13 @@ def init_db() -> None:
                 value TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS muted_users (
+                group_id TEXT,
+                user_id TEXT,
+                PRIMARY KEY (group_id, user_id)
+            )
+        """)
         conn.commit()
         logger.info("📦 Database initialized at %s", DB_PATH)
     finally:
@@ -444,6 +451,46 @@ def set_setting(key: str, value: str) -> None:
             INSERT INTO global_settings (key, value) VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value
         """, (key, value))
+        conn.commit()
+    finally:
+        conn.close()
+
+# ──────────────────────────────────────────────────────────────
+# Muted Users Storage
+# ──────────────────────────────────────────────────────────────
+
+def get_muted_users(group_id: str) -> list[str]:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        rows = conn.execute("SELECT user_id FROM muted_users WHERE group_id = ?", (group_id,)).fetchall()
+        return [r[0] for r in rows]
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        conn.close()
+
+def is_muted(group_id: str, user_id: str) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT 1 FROM muted_users WHERE group_id = ? AND user_id = ?", (group_id, user_id)).fetchone()
+        return bool(row)
+    except sqlite3.OperationalError:
+        return False
+    finally:
+        conn.close()
+
+def mute_user(group_id: str, user_id: str) -> None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("INSERT OR IGNORE INTO muted_users (group_id, user_id) VALUES (?, ?)", (group_id, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+def unmute_user(group_id: str, user_id: str) -> None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("DELETE FROM muted_users WHERE group_id = ? AND user_id = ?", (group_id, user_id))
         conn.commit()
     finally:
         conn.close()
