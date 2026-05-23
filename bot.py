@@ -606,7 +606,6 @@ def handle_message(data: dict) -> None:
         if check_rbac("rbac"):
             send_text(chat_id, "⏳ Generating RBAC Excel template...")
             b64_data = rbac.generate_template_b64()
-            import whatsapp
             whatsapp.send_file(
                 chat_id=chat_id,
                 base64_data=b64_data,
