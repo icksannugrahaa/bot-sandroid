@@ -108,11 +108,13 @@ def gendeviceid_cmd(send_text_fn, chat_id, text):
         if len(parts) > 1:
             alias = get_authorized_alias(chat_id, parts[1])
             if set_imei(alias, new_imei):
-                send_text_fn(chat_id, f"✅ Device ID (IMEI) baru untuk `{alias}` berhasil dibuat dan disimpan:\n`{new_imei}`\n\nSilahkan jalankan `register imei {alias}`.")
+                send_text_fn(chat_id, f"✅ Device ID (IMEI) baru untuk `{alias}` berhasil dibuat dan disimpan.\n\nSilahkan jalankan `register imei {alias}`.")
+                send_text_fn(chat_id, new_imei)
             else:
                 send_text_fn(chat_id, "❌ User tidak ditemukan.")
         else:
-            send_text_fn(chat_id, f"✅ Generated Device ID (Android):\n`{new_imei}`")
+            send_text_fn(chat_id, "✅ Generated Device ID (Android):\n📋 _Tap & hold pesan di bawah untuk copy_")
+            send_text_fn(chat_id, new_imei)
     except Exception as e:
         send_text_fn(chat_id, f"❌ Gagal generate device id: {e}")
 
