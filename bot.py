@@ -5,6 +5,7 @@ and auto-replies using the OpenWA REST API.
 """
 
 import os
+import re
 import logging
 import requests
 import pyotp
@@ -25,6 +26,7 @@ load_dotenv(_env_path)
 # ──────────────────────────────────────────────────────────────
 from whatsapp import send_text, OPENWA_BASE_URL, OPENWA_SESSION_ID
 BOT_PORT = int(os.getenv("BOT_PORT", "5000"))
+BOT_PHONE = os.getenv("BOT_PHONE", "")
 
 # GitHub Models configuration (Runs natively on Azure!)
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
@@ -192,7 +194,6 @@ def handle_message(data: dict) -> None:
 
     # Keep original body for extracting case-sensitive values (password, totp)
     raw_body = (data.get("body") or "").strip()
-    body = raw_body.lower()
     from_id = data.get("from", "")
     is_group = data.get("isGroup", False)
 
@@ -202,7 +203,34 @@ def handle_message(data: dict) -> None:
     # Extract phone number (strip @c.us / @g.us suffix)
     phone = from_id.split("@")[0] if "@" in from_id else from_id
 
-    logger.info("📩 Message from %s (chatId=%s): %s", from_id, chat_id, body)
+    logger.info("📩 Message from %s (chatId=%s): %s", from_id, chat_id, raw_body)
+
+    # ── Group mention filter ─────────────────────────────────
+    # In group chats, only respond when the bot is @mentioned.
+    # Strip the @mention tag from the message so commands parse normally.
+    if is_group:
+        mentioned_jids = data.get("mentionedJidList") or []
+        bot_jid = f"{BOT_PHONE}@c.us" if BOT_PHONE else ""
+
+        # Check if bot is mentioned (via mentionedJidList or @phone in body)
+        bot_mentioned = (
+            (bot_jid and bot_jid in mentioned_jids)
+            or (BOT_PHONE and f"@{BOT_PHONE}" in raw_body)
+        )
+
+        if not bot_mentioned:
+            logger.info("⏭️ Group message without bot mention, skipping")
+            return
+
+        # Strip the @mention tag from the message body
+        # WhatsApp mentions can appear as @628xxx or @Contact Name
+        if BOT_PHONE and f"@{BOT_PHONE}" in raw_body:
+            raw_body = raw_body.replace(f"@{BOT_PHONE}", "").strip()
+        else:
+            # Fallback: strip the first @mention token (handles display-name mentions)
+            raw_body = re.sub(r"@\S+", "", raw_body, count=1).strip()
+
+    body = raw_body.lower()
 
     # ── Command routing ──────────────────────────────────────
     if body.startswith("set ambri pass "):
