@@ -312,9 +312,18 @@ def handle_message(data: dict) -> None:
     # Determine the chat to reply to
     chat_id = data.get("chatId") or from_id
 
-    # In group chats, the actual sender is in 'sender' or 'author', not 'from'
-    # In private chats, 'from' is the sender
-    sender_id = data.get("sender") or data.get("author") or from_id
+    # In group chats, the actual sender is often missing in OpenWA webhooks.
+    # We can extract it from the message ID: false_{group_id}_{hash}_{sender_id}
+    msg_id = data.get("id", "")
+    if is_group and "_" in msg_id:
+        parts = msg_id.split("_")
+        if len(parts) >= 4:
+            sender_id = parts[3]
+        else:
+            sender_id = data.get("sender") or data.get("author") or from_id
+    else:
+        # In private chats, 'from' is the sender
+        sender_id = data.get("sender") or data.get("author") or from_id
     
     # ── Mute intercept ───────────────────────────────────────
     if is_group and storage.is_muted(chat_id, sender_id):
