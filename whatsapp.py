@@ -90,18 +90,31 @@ def create_group(name: str, participants: list) -> dict:
         return {"success": False, "error": str(exc)}
 
 def update_group(group_id: str, name: str = None, description: str = None) -> dict:
-    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
-    payload = {}
-    if name: payload["name"] = name
-    if description: payload["description"] = description
-    try:
-        resp = requests.patch(url, json=payload, headers=headers, timeout=30)
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as exc:
-        logger.error("❌ Failed to update group %s: %s", group_id, exc)
-        return {"success": False, "error": str(exc)}
+    success = True
+    errors = []
+    
+    if name:
+        url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/subject"
+        try:
+            resp = requests.put(url, json={"subject": name}, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except Exception as exc:
+            logger.error("❌ Failed to update group name %s: %s", group_id, exc)
+            success = False
+            errors.append(str(exc))
+            
+    if description:
+        url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/description"
+        try:
+            resp = requests.put(url, json={"description": description}, headers=headers, timeout=30)
+            resp.raise_for_status()
+        except Exception as exc:
+            logger.error("❌ Failed to update group description %s: %s", group_id, exc)
+            success = False
+            errors.append(str(exc))
+            
+    return {"success": success, "error": ", ".join(errors) if errors else None}
 
 def get_group_info(group_id: str) -> dict:
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}"
@@ -115,10 +128,10 @@ def get_group_info(group_id: str) -> dict:
         return {"success": False, "error": str(exc)}
 
 def leave_group(group_id: str) -> dict:
-    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}"
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/leave"
     headers = {"X-API-Key": OPENWA_API_KEY}
     try:
-        resp = requests.delete(url, headers=headers, timeout=30)
+        resp = requests.post(url, headers=headers, timeout=30)
         resp.raise_for_status()
         return resp.json()
     except Exception as exc:
@@ -126,7 +139,7 @@ def leave_group(group_id: str) -> dict:
         return {"success": False, "error": str(exc)}
 
 def add_group_admin(group_id: str, participants: list) -> dict:
-    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/admins"
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants/promote"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
     payload = {"participants": participants}
     try:
@@ -138,11 +151,11 @@ def add_group_admin(group_id: str, participants: list) -> dict:
         return {"success": False, "error": str(exc)}
 
 def remove_group_admin(group_id: str, participants: list) -> dict:
-    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/admins"
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants/demote"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
     payload = {"participants": participants}
     try:
-        resp = requests.delete(url, json=payload, headers=headers, timeout=30)
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         return resp.json()
     except Exception as exc:
