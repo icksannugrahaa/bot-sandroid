@@ -43,7 +43,7 @@ def send_text(chat_id: str, text: str) -> dict:
 
 def send_file(chat_id: str, base64_data: str, mimetype: str, filename: str, caption: str = "") -> dict:
     """Send a file (base64) through the OpenWA API."""
-    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/messages/send-file"
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/messages/send-document"
     headers = {
         "Content-Type": "application/json",
         "X-API-Key": OPENWA_API_KEY,
@@ -54,7 +54,7 @@ def send_file(chat_id: str, base64_data: str, mimetype: str, filename: str, capt
     
     payload = {
         "chatId": chat_id,
-        "file": data_uri,
+        "document": { "base64": data_uri },
         "filename": filename,
         "caption": caption
     }
