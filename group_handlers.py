@@ -24,9 +24,12 @@ def group_create_cmd(send_text, chat_id, raw_body):
     participants = []
     
     for p in parts[2:]:
+        # Strip brackets just in case user typed literal documentation brackets
+        clean_p = p.strip("[]")
+        
         # If it looks like a number or has commas
-        if p.replace(",","").isdigit() or p.startswith("@"):
-            nums = p.split(",")
+        if clean_p.replace(",","").isdigit() or clean_p.startswith("@"):
+            nums = clean_p.split(",")
             for n in nums:
                 cn = clean_number(n)
                 if cn: participants.append(cn)
@@ -37,7 +40,10 @@ def group_create_cmd(send_text, chat_id, raw_body):
     if not name:
         return send_text(chat_id, "⚠️ Nama grup tidak boleh kosong.")
         
-    send_text(chat_id, f"⏳ Sedang membuat grup '{name}'...")
+    if not participants:
+        return send_text(chat_id, "⚠️ Gagal membuat grup: Anda harus memasukkan minimal 1 nomor peserta.\nFormat: *group create <nama> <nomor_peserta>*")
+        
+    send_text(chat_id, f"⏳ Sedang membuat grup '{name}' dengan {len(participants)} peserta...")
     res = whatsapp.create_group(name, participants)
     if res.get("success"):
         send_text(chat_id, f"✅ Grup berhasil dibuat!")

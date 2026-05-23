@@ -81,6 +81,10 @@ def create_group(name: str, participants: list) -> dict:
         resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         return resp.json()
+    except requests.HTTPError as exc:
+        error_body = exc.response.text if exc.response is not None else "no response body"
+        logger.error("❌ HTTP %s for group create: %s", exc.response.status_code if exc.response else '?', error_body)
+        return {"success": False, "error": error_body}
     except Exception as exc:
         logger.error("❌ Failed to create group: %s", exc)
         return {"success": False, "error": str(exc)}
