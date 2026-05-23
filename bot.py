@@ -330,7 +330,7 @@ def handle_message(data: dict) -> None:
         logger.info("🔇 Message from muted user %s in %s. Deleting.", sender_id, chat_id)
         msg_id = data.get("id")
         if msg_id:
-            whatsapp.delete_message(msg_id, for_everyone=True)
+            whatsapp.delete_message(chat_id, msg_id, for_everyone=True)
         return
 
     # Extract phone number (strip @c.us / @g.us suffix)

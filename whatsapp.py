@@ -186,11 +186,16 @@ def remove_group_participant(group_id: str, participants: list) -> dict:
         logger.error("❌ Failed to remove participant from group %s: %s", group_id, exc)
         return {"success": False, "error": str(exc)}
 
-def delete_message(message_id: str, for_everyone: bool = True) -> dict:
-    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/messages/{message_id}?forEveryone={str(for_everyone).lower()}"
-    headers = {"X-API-Key": OPENWA_API_KEY}
+def delete_message(chat_id: str, message_id: str, for_everyone: bool = True) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/messages/delete"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {
+        "chatId": chat_id,
+        "messageId": message_id,
+        "forEveryone": for_everyone
+    }
     try:
-        resp = requests.delete(url, headers=headers, timeout=30)
+        resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         return resp.json()
     except Exception as exc:
