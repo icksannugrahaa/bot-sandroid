@@ -18,7 +18,6 @@ import storage
 import attendance_handlers as ah
 from users import is_admin
 import rbac
-from automation import is_maintenance, set_maintenance
 
 # Load .env file (must be called before os.getenv)
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -60,6 +59,18 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
+# ──────────────────────────────────────────────────────────────
+# Maintenance mode
+# ──────────────────────────────────────────────────────────────
+_maintenance_mode = False
+
+def is_maintenance() -> bool:
+    return _maintenance_mode
+
+def set_maintenance(enabled: bool) -> None:
+    global _maintenance_mode
+    _maintenance_mode = enabled
+    logger.info("🔧 Maintenance mode %s", "ENABLED" if enabled else "DISABLED")
 
 # ──────────────────────────────────────────────────────────────
 # Command handlers
