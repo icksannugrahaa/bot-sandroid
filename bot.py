@@ -349,6 +349,12 @@ def handle_message(data: dict) -> None:
 
     body = raw_body.lower()
 
+    def check_rbac(feature: str) -> bool:
+        if rbac.has_permission(sender_id, feature):
+            return True
+        send_text(chat_id, f"❌ Anda tidak memiliki akses ke fitur: *{feature}*")
+        return False
+
     # ── Determine if sender is admin ────────────────────────
     user_is_admin = is_admin(chat_id) or is_admin(sender_id)
 
@@ -366,17 +372,10 @@ def handle_message(data: dict) -> None:
             status = "AKTIF 🔴" if is_maintenance() else "NONAKTIF 🟢"
             send_text(chat_id, f"🔧 Status Maintenance saat ini: *{status}*")
 
-    # ── Maintenance mode gate ─────────────────────────────────
     # Block non-admin users when maintenance is active
     if is_maintenance() and not user_is_admin:
         send_text(chat_id, "🔧 *Bot sedang dalam maintenance*\n\nMohon maaf, bot sedang dalam perbaikan. Silakan coba lagi nanti. 🙏")
         return
-
-    def check_rbac(feature: str) -> bool:
-        if rbac.has_permission(sender_id, feature):
-            return True
-        send_text(chat_id, f"❌ Anda tidak memiliki akses ke fitur: *{feature}*")
-        return False
 
     # ── Command routing ──────────────────────────────────────
     if body.startswith("set ambri pass "):

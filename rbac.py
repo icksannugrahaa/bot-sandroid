@@ -15,7 +15,8 @@ DEFAULT_FEATURES = [
     "user_management",
     "login_code",
     "rbac",
-    "ai"
+    "ai",
+    "maintenance"
 ]
 
 DEFAULT_ROLES = ["super admin", "admin", "user"]
@@ -29,6 +30,7 @@ DEFAULT_MATRIX = {
     "login_code": {"super admin": True, "admin": True, "user": True},
     "rbac": {"super admin": True, "admin": False, "user": False},
     "ai": {"super admin": True, "admin": True, "user": True},
+    "maintenance": {"super admin": True, "admin": False, "user": False},
 }
 
 def init_default_rbac():
