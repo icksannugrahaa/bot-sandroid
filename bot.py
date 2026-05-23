@@ -223,18 +223,24 @@ def cmd_spam(chat_id: str, raw_body: str, sender_id: str, pushname: str = "") ->
     if count < 1:
         count = 1
 
-    # Coba cari alias user di database attendance
+    # Coba cari username user di database attendance
     import storage
     users = storage.get_attendance_users()
-    alias_name = ""
+    display_name = ""
     for alias, u in users.items():
         if u.get("owner_chat_id") == sender_id:
-            alias_name = alias
+            display_name = u.get("username")
             break
 
     # Format the caller's name/link safely
-    if alias_name:
-        caller_display = f"*{alias_name.upper()}*"
+    if display_name:
+        if display_name.isdigit():
+            clean_num = display_name
+            if clean_num.startswith("08"):
+                clean_num = "628" + clean_num[2:]
+            caller_display = f"wa.me/{clean_num}"
+        else:
+            caller_display = f"*{display_name}*"
     elif pushname:
         caller_display = f"*{pushname}*"
     elif "@lid" in sender_id:
