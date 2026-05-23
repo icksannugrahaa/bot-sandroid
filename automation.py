@@ -25,25 +25,27 @@ _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATUS_DIR = os.path.join(_BASE_DIR, "status")
 os.makedirs(STATUS_DIR, exist_ok=True)
 LOCK_FILE = os.path.join(STATUS_DIR, "attendance_runner.lock")
+NIGHTLY_LOCK_FILE = os.path.join(STATUS_DIR, "nightly_runner.lock")
 
-def acquire_lock():
+def acquire_lock(lock_path: str = None):
+    path = lock_path or LOCK_FILE
     if os.name == 'nt':
         import msvcrt
-        lock_fd = open(LOCK_FILE, "w")
+        lock_fd = open(path, "w")
         try:
             msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
             return lock_fd
         except OSError:
-            print("Runner masih berjalan, skip.")
+            print(f"Runner masih berjalan ({path}), skip.")
             sys.exit(0)
     else:
         import fcntl
-        lock_fd = open(LOCK_FILE, "w")
+        lock_fd = open(path, "w")
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return lock_fd
         except BlockingIOError:
-            print("Runner masih berjalan, skip.")
+            print(f"Runner masih berjalan ({path}), skip.")
             sys.exit(0)
 
 def notify_admin(msg: str):
@@ -302,16 +304,26 @@ def run():
 
 def run_nightly_check():
     now_dt = now()
-    bot_log("[AUTO] Menjalankan pengecekan Nightly Update (22:00)")
+    bot_log("[NIGHTLY] Menjalankan pengecekan Nightly Update")
     
     users = get_attendance_users()
     if not users:
+        bot_log("[NIGHTLY] Tidak ada user terdaftar, skip.")
         return
-        
+
+    notified_count = 0
     for alias, user in users.items():
-        if not user.get("automation"):
-            continue
-        notify_tomorrow_status(alias, now_dt, context='nightly')
+        try:
+            notify_tomorrow_status(alias, now_dt, context='nightly')
+            notified_count += 1
+        except Exception as e:
+            bot_log(f"[NIGHTLY] Error notifikasi {alias}: {e}")
+            notify_error(f"Nightly notif gagal untuk {alias}\n{e}", alias)
+
+    if notified_count == 0:
+        bot_log("[NIGHTLY] Tidak ada notifikasi yang dikirim.")
+    else:
+        bot_log(f"[NIGHTLY] Selesai, {notified_count} notifikasi terkirim.")
 
 
 # ======================
@@ -319,8 +331,13 @@ def run_nightly_check():
 # ======================
 
 if __name__ == "__main__":
-    lock = acquire_lock()
     if len(sys.argv) > 1 and sys.argv[1] == "--nightly":
-        run_nightly_check()
+        lock = acquire_lock(NIGHTLY_LOCK_FILE)
+        try:
+            run_nightly_check()
+        except Exception as e:
+            bot_log(f"[NIGHTLY] FATAL ERROR: {e}")
+            notify_error(f"Nightly check gagal total\n{e}")
     else:
+        lock = acquire_lock(LOCK_FILE)
         run()
