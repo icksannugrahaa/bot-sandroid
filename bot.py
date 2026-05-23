@@ -97,7 +97,11 @@ def cmd_set_totp(chat_id: str, phone: str, raw_body: str) -> None:
 
 def cmd_generate_code(chat_id: str, phone: str) -> None:
     """Handle: generate code"""
-    creds = storage.get_credentials(phone)
+    try:
+        creds = storage.get_credentials(phone)
+    except Exception:
+        send_text(chat_id, "❌ Encryption Error: Data is locked with a different ENCRYPTION_KEY. Please ensure the ENCRYPTION_KEY in your server's .env matches the one on your Mac.")
+        return
 
     if not creds:
         send_text(chat_id, "⚠️ You haven't set up yet.\nPlease set your password and TOTP secret first:\n\n• *set ambri pass <password>*\n• *set ambri totp <secret>*")
