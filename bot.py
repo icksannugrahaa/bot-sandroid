@@ -360,15 +360,15 @@ def handle_message(data: dict) -> None:
 
     # ── Maintenance mode commands (admin only) ────────────────
     if body.startswith("maintenance on"):
-        if check_rbac("user_management"):
+        if check_rbac("maintenance"):
             set_maintenance(True)
             send_text(chat_id, "🔧 Mode maintenance AKTIF.\nSemua command dari non-admin akan diblokir.")
     elif body.startswith("maintenance off"):
-        if check_rbac("user_management"):
+        if check_rbac("maintenance"):
             set_maintenance(False)
             send_text(chat_id, "✅ Mode maintenance NONAKTIF.\nBot dapat digunakan kembali oleh semua user.")
     elif body == "maintenance status" or body == "maintenance":
-        if check_rbac("user_management"):
+        if check_rbac("maintenance"):
             status = "AKTIF 🔴" if is_maintenance() else "NONAKTIF 🟢"
             send_text(chat_id, f"🔧 Status Maintenance saat ini: *{status}*")
 
@@ -457,7 +457,7 @@ def handle_message(data: dict) -> None:
             lines.append("🧠 *AI Chat*")
             lines.append("• _Just send any normal message and the AI will reply!_\n")
 
-        if rbac.has_permission(sender_id, "user_management"):
+        if rbac.has_permission(sender_id, "maintenance"):
             lines.append("🔧 *Maintenance (Admin)*")
             lines.append("• *maintenance on* — Aktifkan mode maintenance")
             lines.append("• *maintenance off* — Matikan mode maintenance")
