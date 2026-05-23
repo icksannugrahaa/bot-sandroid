@@ -223,8 +223,19 @@ def cmd_spam(chat_id: str, raw_body: str, sender_id: str, pushname: str = "") ->
     if count < 1:
         count = 1
 
+    # Coba cari alias user di database attendance
+    import storage
+    users = storage.get_attendance_users()
+    alias_name = ""
+    for alias, u in users.items():
+        if u.get("owner_chat_id") == sender_id:
+            alias_name = alias
+            break
+
     # Format the caller's name/link safely
-    if pushname:
+    if alias_name:
+        caller_display = f"*{alias_name.upper()}*"
+    elif pushname:
         caller_display = f"*{pushname}*"
     elif "@lid" in sender_id:
         caller_display = "seseorang"
