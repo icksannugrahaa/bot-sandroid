@@ -168,16 +168,17 @@ def assign_role(executor_chat_id: str, target_number: str, target_role: str) -> 
     """Assign a role to a number, adhering to RBAC assignment rules."""
     executor_role = get_user_role(executor_chat_id)
     target_role = target_role.strip().lower()
-    target_number = target_number.strip()
+    target_id = target_number.strip()
     
-    # Strip non-digits just in case
-    import re
-    target_number = re.sub(r'\D', '', target_number)
-    if not target_number:
-        return "❌ Nomor tidak valid."
+    if "@" not in target_id:
+        import re
+        clean_num = re.sub(r'\D', '', target_id)
+        if not clean_num:
+            return "❌ Nomor/ID tidak valid."
+        target_chat_id = f"{clean_num}@c.us"
+    else:
+        target_chat_id = target_id
         
-    target_chat_id = f"{target_number}@c.us"
-    
     # Validation Rules
     if target_role == "super admin":
         if executor_role != "super admin":
@@ -188,7 +189,7 @@ def assign_role(executor_chat_id: str, target_number: str, target_role: str) -> 
         return "❌ Admin hanya dapat mengangkat role 'user' atau 'admin'."
         
     storage.set_user_role(target_chat_id, target_role)
-    return f"✅ Berhasil mengubah role {target_number} menjadi *{target_role}*."
+    return f"✅ Berhasil mengubah role {target_chat_id} menjadi *{target_role}*."
 
 def list_users_with_roles() -> str:
     """Return a formatted string listing all users, their roles, status, and features."""

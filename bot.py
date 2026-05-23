@@ -401,6 +401,9 @@ def handle_message(data: dict) -> None:
     elif body == "ping":
         send_text(chat_id, "pong 🏓")
         
+    elif body == "my id":
+        send_text(chat_id, f"🆔 ID Anda adalah: *{sender_id}*\n\n_(Kirim ID ini ke admin jika Anda membutuhkan akses role)_")
+        
     elif body.startswith("spam "):
         if check_rbac("spam"):
             pushname = data.get("pushname") or data.get("notifyName") or ""
@@ -411,6 +414,7 @@ def handle_message(data: dict) -> None:
         lines.append("📋 *General*")
         lines.append("• *hello* — Say hello")
         lines.append("• *ping* — Check if bot is alive")
+        lines.append("• *my id* — Check your exact ID (for admin setup)")
         
         # We don't use check_rbac here to avoid sending an error message to the user,
         # we just want to silently check if they have permission to see it.
