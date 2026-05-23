@@ -40,3 +40,37 @@ def send_text(chat_id: str, text: str) -> dict:
     except requests.RequestException as exc:
         logger.error("❌ Request failed for %s: %s", chat_id, exc)
         return {"success": False, "error": str(exc)}
+
+def send_file(chat_id: str, base64_data: str, mimetype: str, filename: str, caption: str = "") -> dict:
+    """Send a file (base64) through the OpenWA API."""
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/messages/send-file"
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-Key": OPENWA_API_KEY,
+    }
+    
+    # OpenWA requires the file to be a data URI
+    data_uri = f"data:{mimetype};base64,{base64_data}"
+    
+    payload = {
+        "chatId": chat_id,
+        "file": data_uri,
+        "filename": filename,
+        "caption": caption
+    }
+
+    logger.info("📤 Sending file to %s | chatId=%s | filename=%s", url, chat_id, filename)
+
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        logger.info("✅ File sent to %s: %s", chat_id, filename)
+        return data
+    except requests.HTTPError as exc:
+        error_body = exc.response.text if exc.response is not None else "no response body"
+        logger.error("❌ HTTP %s for %s: %s", exc.response.status_code if exc.response else '?', chat_id, error_body)
+        return {"success": False, "error": error_body}
+    except requests.RequestException as exc:
+        logger.error("❌ Request failed for %s: %s", chat_id, exc)
+        return {"success": False, "error": str(exc)}

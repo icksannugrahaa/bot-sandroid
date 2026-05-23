@@ -1,8 +1,10 @@
 import storage
 from config import ADMIN_CHAT_IDS
+import rbac
 
 def is_admin(chat_id: str) -> bool:
-    return chat_id in ADMIN_CHAT_IDS
+    role = rbac.get_user_role(chat_id)
+    return role in ["super admin", "admin"]
 
 def get_authorized_alias(chat_id: str, alias: str | None) -> str:
     """

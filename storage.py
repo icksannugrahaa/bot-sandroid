@@ -125,6 +125,20 @@ def init_db() -> None:
                 data TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rbac_permissions (
+                feature TEXT,
+                role TEXT,
+                is_active BOOLEAN,
+                PRIMARY KEY (feature, role)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rbac_user_roles (
+                chat_id TEXT PRIMARY KEY,
+                role TEXT
+            )
+        """)
         conn.commit()
         logger.info("📦 Database initialized at %s", DB_PATH)
     finally:
@@ -336,4 +350,70 @@ def save_attendance_status(alias: str, data: dict) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+# ──────────────────────────────────────────────────────────────
+# RBAC Storage (Roles & Permissions)
+# ──────────────────────────────────────────────────────────────
+
+def get_all_rbac_permissions() -> list[dict]:
+    """Returns a list of dicts: [{'feature': '...', 'role': '...', 'is_active': True}]"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute("SELECT feature, role, is_active FROM rbac_permissions").fetchall()
+        return [{"feature": r["feature"], "role": r["role"], "is_active": bool(r["is_active"])} for r in rows]
+    finally:
+        conn.close()
+
+def set_rbac_permissions(permissions: list[dict]) -> None:
+    """Clears existing permissions and sets the new ones."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("DELETE FROM rbac_permissions")
+        for p in permissions:
+            conn.execute(
+                "INSERT INTO rbac_permissions (feature, role, is_active) VALUES (?, ?, ?)",
+                (p["feature"], p["role"], int(p["is_active"]))
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+def get_rbac_user_roles() -> dict[str, str]:
+    """Returns {chat_id: role}"""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        rows = conn.execute("SELECT chat_id, role FROM rbac_user_roles").fetchall()
+        return {r[0]: r[1] for r in rows}
+    finally:
+        conn.close()
+
+def get_user_role(chat_id: str) -> str | None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT role FROM rbac_user_roles WHERE chat_id = ?", (chat_id,)).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+def set_user_role(chat_id: str, role: str) -> None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO rbac_user_roles (chat_id, role) VALUES (?, ?)
+            ON CONFLICT(chat_id) DO UPDATE SET role=excluded.role
+        """, (chat_id, role))
+        conn.commit()
+    finally:
+        conn.close()
+
+def delete_user_role(chat_id: str) -> None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("DELETE FROM rbac_user_roles WHERE chat_id = ?", (chat_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
 

@@ -16,6 +16,9 @@ import threading
 
 import storage
 import attendance_handlers as ah
+from users import is_admin
+import rbac
+from automation import is_maintenance, set_maintenance
 
 # Load .env file (must be called before os.getenv)
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -56,24 +59,6 @@ logger = logging.getLogger(__name__)
 # Flask App
 # ──────────────────────────────────────────────────────────────
 app = Flask(__name__)
-
-# ──────────────────────────────────────────────────────────────
-# Maintenance mode
-# ──────────────────────────────────────────────────────────────
-_maintenance_mode = False
-
-
-def is_maintenance() -> bool:
-    return _maintenance_mode
-
-
-def set_maintenance(enabled: bool) -> None:
-    global _maintenance_mode
-    _maintenance_mode = enabled
-    logger.info("🔧 Maintenance mode %s", "ENABLED" if enabled else "DISABLED")
-
-
-# Removed send_text in favor of whatsapp.py
 
 
 # ──────────────────────────────────────────────────────────────
@@ -354,27 +339,21 @@ def handle_message(data: dict) -> None:
     body = raw_body.lower()
 
     # ── Determine if sender is admin ────────────────────────
-    from users import is_admin
     user_is_admin = is_admin(chat_id) or is_admin(sender_id)
 
     # ── Maintenance mode commands (admin only) ────────────────
-    if body == "maintenance on":
-        if not user_is_admin:
-            return send_text(chat_id, "❌ Akses ditolak. Hanya admin yang bisa mengubah mode maintenance.")
-        set_maintenance(True)
-        return send_text(chat_id, "🔧 *Maintenance mode AKTIF*\n\nBot tidak akan merespons pengguna biasa sampai maintenance dimatikan.")
-
-    elif body == "maintenance off":
-        if not user_is_admin:
-            return send_text(chat_id, "❌ Akses ditolak. Hanya admin yang bisa mengubah mode maintenance.")
-        set_maintenance(False)
-        return send_text(chat_id, "✅ *Maintenance mode NONAKTIF*\n\nBot kembali aktif untuk semua pengguna.")
-
-    elif body == "maintenance status":
-        if not user_is_admin:
-            return send_text(chat_id, "❌ Akses ditolak.")
-        status = "🔧 AKTIF" if is_maintenance() else "✅ NONAKTIF"
-        return send_text(chat_id, f"Status maintenance: {status}")
+    if body.startswith("maintenance on"):
+        if check_rbac("user_management"):
+            set_maintenance(True)
+            send_text(chat_id, "🔧 Mode maintenance AKTIF.\nSemua command dari non-admin akan diblokir.")
+    elif body.startswith("maintenance off"):
+        if check_rbac("user_management"):
+            set_maintenance(False)
+            send_text(chat_id, "✅ Mode maintenance NONAKTIF.\nBot dapat digunakan kembali oleh semua user.")
+    elif body == "maintenance status" or body == "maintenance":
+        if check_rbac("user_management"):
+            status = "AKTIF 🔴" if is_maintenance() else "NONAKTIF 🟢"
+            send_text(chat_id, f"🔧 Status Maintenance saat ini: *{status}*")
 
     # ── Maintenance mode gate ─────────────────────────────────
     # Block non-admin users when maintenance is active
@@ -382,15 +361,24 @@ def handle_message(data: dict) -> None:
         send_text(chat_id, "🔧 *Bot sedang dalam maintenance*\n\nMohon maaf, bot sedang dalam perbaikan. Silakan coba lagi nanti. 🙏")
         return
 
+    def check_rbac(feature: str) -> bool:
+        if rbac.has_permission(sender_id, feature):
+            return True
+        send_text(chat_id, f"❌ Anda tidak memiliki akses ke fitur: *{feature}*")
+        return False
+
     # ── Command routing ──────────────────────────────────────
     if body.startswith("set ambri pass "):
-        cmd_set_password(chat_id, phone, raw_body)
+        if check_rbac("login_code"):
+            cmd_set_password(chat_id, phone, raw_body)
 
     elif body.startswith("set ambri totp "):
-        cmd_set_totp(chat_id, phone, raw_body)
+        if check_rbac("login_code"):
+            cmd_set_totp(chat_id, phone, raw_body)
 
     elif body == "generate code":
-        cmd_generate_code(chat_id, phone)
+        if check_rbac("login_code"):
+            cmd_generate_code(chat_id, phone)
 
     elif body == "hello":
         send_text(chat_id, "hello too 👋")
@@ -399,85 +387,163 @@ def handle_message(data: dict) -> None:
         send_text(chat_id, "pong 🏓")
         
     elif body.startswith("spam "):
-        pushname = data.get("pushname") or data.get("notifyName") or ""
-        cmd_spam(chat_id, raw_body, sender_id, pushname)
+        if check_rbac("spam"):
+            pushname = data.get("pushname") or data.get("notifyName") or ""
+            cmd_spam(chat_id, raw_body, sender_id, pushname)
 
     elif body == "help":
-        help_text = (
-            "🤖 *Bot Commands*\n\n"
-            "📋 *General*\n"
-            "• *hello* — Say hello\n"
-            "• *ping* — Check if bot is alive\n"
-            "• *spam <nomor> [jumlah]* — Spam pesan (max 5)\n"
-            "• *help* — Show this help message\n\n"
-            "🏃‍♂️ *Attendance*\n"
-            "• *checkin [alias]* - Absen masuk\n"
-            "• *checkout [alias]* - Absen pulang\n"
-            "• *list history [alias] [week/month]* - Cek riwayat\n\n"
-            "⚙️ *Konfigurasi*\n"
-            "• *set auto on/off [alias]* - Set automasi harian\n"
-            "• *set checkin timerange [alias] HH:MM HH:MM* - Waktu acak masuk\n"
-            "• *set checkout timerange [alias] HH:MM HH:MM* - Waktu acak pulang\n"
-            "• *set notes [alias] [notes]* - Custom notes absen\n"
-            "• *clear notes [alias]* - Reset notes absen\n"
-            "• *set location [alias] [ID/nama]* - Set lokasi default\n\n"
-            "📍 *Lokasi*\n"
-            "• *list location* - Lihat daftar semua lokasi\n"
-            "• *add location [nama] [lat,lng]* - Tambah lokasi baru\n\n"
-            "👥 *User Management*\n"
-            "• *list users* - Lihat user terdaftar\n"
-            "• *add user <alias> <user> <pass> <imei>* - Tambah user\n"
-            "• *login [alias]* - Login paksa/refresh token\n"
-            "• *register imei [alias]* - Daftarkan IMEI saat ini\n"
-            "• *generate device id [alias]* - Generate IMEI baru\n\n"
-            "🔐 *Login Code*\n"
-            "• *set ambri pass <password>* — Set your password\n"
-            "• *set ambri totp <secret>* — Set your TOTP secret\n"
-            "• *generate code* — Get your login code\n\n"
-            "🧠 *AI Chat*\n"
-            "• _Just send any normal message and the AI will reply!_\n\n"
-            "🔧 *Maintenance (Admin)*\n"
-            "• *maintenance on* — Aktifkan mode maintenance\n"
-            "• *maintenance off* — Matikan mode maintenance\n"
-            "• *maintenance status* — Cek status maintenance\n\n"
-            "Made with 🤖 and ❤️\n"
-            "By Sandroid"
-        )
+        lines = ["🤖 *Bot Commands*\n"]
+        lines.append("📋 *General*")
+        lines.append("• *hello* — Say hello")
+        lines.append("• *ping* — Check if bot is alive")
+        
+        # We don't use check_rbac here to avoid sending an error message to the user,
+        # we just want to silently check if they have permission to see it.
+        if rbac.has_permission(sender_id, "spam"):
+            lines.append("• *spam <nomor> [jumlah]* — Spam pesan (max 5)")
+            
+        lines.append("• *help* — Show this help message\n")
+
+        if rbac.has_permission(sender_id, "attendance"):
+            lines.append("🏃‍♂️ *Attendance*")
+            lines.append("• *checkin [alias]* - Absen masuk")
+            lines.append("• *checkout [alias]* - Absen pulang")
+            lines.append("• *list history [alias] [week/month]* - Cek riwayat\n")
+
+        if rbac.has_permission(sender_id, "konfigurasi"):
+            lines.append("⚙️ *Konfigurasi*")
+            lines.append("• *set auto on/off [alias]* - Set automasi harian")
+            lines.append("• *set checkin timerange [alias] HH:MM HH:MM* - Waktu acak masuk")
+            lines.append("• *set checkout timerange [alias] HH:MM HH:MM* - Waktu acak pulang")
+            lines.append("• *set notes [alias] [notes]* - Custom notes absen")
+            lines.append("• *clear notes [alias]* - Reset notes absen\n")
+
+        if rbac.has_permission(sender_id, "lokasi"):
+            lines.append("📍 *Lokasi*")
+            lines.append("• *list location* - Lihat daftar semua lokasi")
+            lines.append("• *add location [nama] [lat,lng]* - Tambah lokasi baru\n")
+
+        if rbac.has_permission(sender_id, "user_management"):
+            lines.append("👥 *User Management*")
+            lines.append("• *list users* - Lihat user terdaftar")
+            lines.append("• *add user <alias> <user> <pass> <imei>* - Tambah user")
+            lines.append("• *login [alias]* - Login paksa/refresh token")
+            lines.append("• *register imei [alias]* - Daftarkan IMEI saat ini")
+            lines.append("• *generate device id [alias]* - Generate IMEI baru\n")
+
+        if rbac.has_permission(sender_id, "login_code"):
+            lines.append("🔐 *Login Code*")
+            lines.append("• *set ambri pass <password>* — Set your password")
+            lines.append("• *set ambri totp <secret>* — Set your TOTP secret")
+            lines.append("• *generate code* — Get your login code\n")
+
+        if rbac.has_permission(sender_id, "rbac"):
+            lines.append("🛡️ *RBAC (Access Control)*")
+            lines.append("• *rbac download* — Download template Excel RBAC")
+            lines.append("• *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC")
+            lines.append("• *set role <nomor> <role>* — Ubah role pengguna\n")
+
+        if rbac.has_permission(sender_id, "ai"):
+            lines.append("🧠 *AI Chat*")
+            lines.append("• _Just send any normal message and the AI will reply!_\n")
+
+        if rbac.has_permission(sender_id, "user_management"):
+            lines.append("🔧 *Maintenance (Admin)*")
+            lines.append("• *maintenance on* — Aktifkan mode maintenance")
+            lines.append("• *maintenance off* — Matikan mode maintenance")
+            lines.append("• *maintenance status* — Cek status maintenance\n")
+
+        lines.append("Made with 🤖 and ❤️\nBy Sandroid")
+        
+        help_text = "\n".join(lines)
         send_text(chat_id, help_text)
 
     # ── Attendance routing ───────────────────────────────────
     elif body.startswith("add user "):
-        ah.adduser_cmd(send_text, chat_id, raw_body)
+        if check_rbac("user_management"):
+            ah.adduser_cmd(send_text, chat_id, raw_body)
     elif body.startswith("login "):
-        ah.login_cmd(send_text, chat_id, raw_body)
+        if check_rbac("user_management"):
+            ah.login_cmd(send_text, chat_id, raw_body)
     elif body.startswith("register imei "):
-        ah.register_imei_cmd(send_text, chat_id, raw_body)
+        if check_rbac("user_management"):
+            ah.register_imei_cmd(send_text, chat_id, raw_body)
     elif body.startswith("generate device id"):
-        ah.gendeviceid_cmd(send_text, chat_id, raw_body)
+        if check_rbac("user_management"):
+            ah.gendeviceid_cmd(send_text, chat_id, raw_body)
     elif body.startswith("checkin ") or body == "checkin":
-        ah.masuk_cmd(send_text, chat_id, raw_body)
+        if check_rbac("attendance"):
+            ah.masuk_cmd(send_text, chat_id, raw_body)
     elif body.startswith("checkout ") or body == "checkout":
-        ah.pulang_cmd(send_text, chat_id, raw_body)
+        if check_rbac("attendance"):
+            ah.pulang_cmd(send_text, chat_id, raw_body)
     elif body.startswith("list history"):
-        ah.history_cmd(send_text, chat_id, raw_body)
+        if check_rbac("attendance"):
+            ah.history_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set auto"):
-        ah.auto_cmd(send_text, chat_id, raw_body)
+        if check_rbac("attendance"):
+            ah.auto_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set checkin timerange"):
-        ah.set_checkin_timerange_cmd(send_text, chat_id, raw_body)
+        if check_rbac("konfigurasi"):
+            ah.set_checkin_timerange_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set checkout timerange"):
-        ah.set_checkout_timerange_cmd(send_text, chat_id, raw_body)
+        if check_rbac("konfigurasi"):
+            ah.set_checkout_timerange_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set notes "):
-        ah.setnotes_cmd(send_text, chat_id, raw_body)
+        if check_rbac("konfigurasi"):
+            ah.setnotes_cmd(send_text, chat_id, raw_body)
     elif body.startswith("clear notes "):
-        ah.clearnotes_cmd(send_text, chat_id, raw_body)
+        if check_rbac("konfigurasi"):
+            ah.clearnotes_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set location "):
-        ah.setlocation_cmd(send_text, chat_id, raw_body)
+        if check_rbac("lokasi"):
+            ah.setlocation_cmd(send_text, chat_id, raw_body)
     elif body == "list location":
-        ah.location_list_cmd(send_text, chat_id)
+        if check_rbac("lokasi"):
+            ah.location_list_cmd(send_text, chat_id)
     elif body.startswith("add location "):
-        ah.addlocation_cmd(send_text, chat_id, raw_body)
+        if check_rbac("lokasi"):
+            ah.addlocation_cmd(send_text, chat_id, raw_body)
     elif body == "list users":
-        ah.users_cmd(send_text, chat_id)
+        if check_rbac("user_management"):
+            ah.users_cmd(send_text, chat_id)
+
+    # ── RBAC routing ─────────────────────────────────────────
+    elif body == "rbac download":
+        if check_rbac("rbac"):
+            send_text(chat_id, "⏳ Generating RBAC Excel template...")
+            b64_data = rbac.generate_template_b64()
+            import whatsapp
+            whatsapp.send_file(
+                chat_id=chat_id,
+                base64_data=b64_data,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename="rbac_template.xlsx",
+                caption="✅ Ini adalah konfigurasi RBAC saat ini. Edit dan kirim kembali file ini dengan caption `rbac upload`."
+            )
+            
+    elif body == "rbac upload":
+        if check_rbac("rbac"):
+            media = data.get("media")
+            if media and "data" in media:
+                base64_data = media["data"]
+                send_text(chat_id, "⏳ Memproses file RBAC...")
+                msg = rbac.parse_template_b64(base64_data)
+                send_text(chat_id, msg)
+            else:
+                send_text(chat_id, "❌ Tidak ada file document/excel yang dilampirkan. Pastikan Anda melampirkan file Excel saat mengetik `rbac upload`.")
+                
+    elif body.startswith("set role "):
+        if check_rbac("rbac"):
+            # format: set role 628123 admin
+            parts = body.split(maxsplit=3)
+            if len(parts) >= 4:
+                target_number = parts[2]
+                role_name = parts[3]
+                msg = rbac.assign_role(sender_id, target_number, role_name)
+                send_text(chat_id, msg)
+            else:
+                send_text(chat_id, "⚠️ Usage: *set role <nomor> <role_name>*\nContoh: *set role 628123 admin*")
 
     # ── "Who made the bot?" detector ────────────────────────
     elif _is_asking_about_creator(body):
@@ -485,7 +551,8 @@ def handle_message(data: dict) -> None:
 
     else:
         # Default fallback: Treat as an AI prompt
-        cmd_ai(chat_id, raw_body, data.get("media"))
+        if check_rbac("ai"):
+            cmd_ai(chat_id, raw_body, data.get("media"))
 
 
 @app.route("/webhook", methods=["POST"])
