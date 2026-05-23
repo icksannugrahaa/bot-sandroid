@@ -189,3 +189,71 @@ def assign_role(executor_chat_id: str, target_number: str, target_role: str) -> 
         
     storage.set_user_role(target_chat_id, target_role)
     return f"✅ Berhasil mengubah role {target_number} menjadi *{target_role}*."
+
+def list_users_with_roles() -> str:
+    """Return a formatted string listing all users, their roles, status, and features."""
+    roles_db = storage.get_rbac_user_roles()
+    
+    for admin_id in ADMIN_CHAT_IDS:
+        if admin_id not in roles_db:
+            roles_db[admin_id] = "super admin"
+            
+    att_users = storage.get_attendance_users()
+    owner_map = {}
+    for alias, u in att_users.items():
+        owner = u.get("owner_chat_id")
+        if owner:
+            if owner not in owner_map:
+                owner_map[owner] = []
+            owner_map[owner].append(u)
+
+    for owner in owner_map:
+        if owner not in roles_db:
+            roles_db[owner] = "user"
+            
+    if not roles_db:
+        return "Belum ada user yang terdaftar."
+        
+    perms = storage.get_all_rbac_permissions()
+    if not perms:
+        init_default_rbac()
+        perms = storage.get_all_rbac_permissions()
+        
+    role_features = {}
+    for p in perms:
+        r = p["role"].lower()
+        if r not in role_features:
+            role_features[r] = []
+        if p["is_active"]:
+            role_features[r].append(p["feature"])
+            
+    all_features = list(set([p["feature"] for p in perms]))
+    role_features["super admin"] = all_features
+    
+    msg = "🛡️ *RBAC Users List*\n"
+    for chat_id, role in sorted(roles_db.items()):
+        status = "Inactive"
+        if chat_id in ADMIN_CHAT_IDS:
+            status = "Active"
+        else:
+            owned = owner_map.get(chat_id, [])
+            if owned:
+                if any(u.get("active") for u in owned):
+                    status = "Active"
+                else:
+                    status = "Inactive"
+            else:
+                status = "Active (No Alias)"
+                
+        features = role_features.get(role.lower(), [])
+        feature_str = ", ".join(sorted(features)) if features else "-"
+        
+        display_id = chat_id.replace("@c.us", "")
+        
+        msg += f"\n👤 *{display_id}*\n"
+        msg += f"• Type: `{role}`\n"
+        msg += f"• Status: `{status}`\n"
+        msg += f"• Features: _{feature_str}_\n"
+        
+    return msg
+

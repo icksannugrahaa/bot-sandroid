@@ -63,6 +63,10 @@ app = Flask(__name__)
 # Maintenance mode
 # ──────────────────────────────────────────────────────────────
 _maintenance_mode = False
+try:
+    _maintenance_mode = (storage.get_setting("maintenance_mode", "0") == "1")
+except Exception:
+    pass
 
 def is_maintenance() -> bool:
     return _maintenance_mode
@@ -70,6 +74,7 @@ def is_maintenance() -> bool:
 def set_maintenance(enabled: bool) -> None:
     global _maintenance_mode
     _maintenance_mode = enabled
+    storage.set_setting("maintenance_mode", "1" if enabled else "0")
     logger.info("🔧 Maintenance mode %s", "ENABLED" if enabled else "DISABLED")
 
 # ──────────────────────────────────────────────────────────────
@@ -449,6 +454,7 @@ def handle_message(data: dict) -> None:
 
         if rbac.has_permission(sender_id, "rbac"):
             lines.append("🛡️ *RBAC (Access Control)*")
+            lines.append("• *rbac list users* — List users, status, and features")
             lines.append("• *rbac download* — Download template Excel RBAC")
             lines.append("• *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC")
             lines.append("• *set role <nomor> <role>* — Ubah role pengguna\n")
@@ -519,6 +525,11 @@ def handle_message(data: dict) -> None:
             ah.users_cmd(send_text, chat_id)
 
     # ── RBAC routing ─────────────────────────────────────────
+    elif body == "rbac list users":
+        if check_rbac("rbac"):
+            msg = rbac.list_users_with_roles()
+            send_text(chat_id, msg)
+            
     elif body == "rbac download":
         if check_rbac("rbac"):
             send_text(chat_id, "⏳ Generating RBAC Excel template...")

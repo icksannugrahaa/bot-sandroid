@@ -139,6 +139,12 @@ def init_db() -> None:
                 role TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS global_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
         conn.commit()
         logger.info("📦 Database initialized at %s", DB_PATH)
     finally:
@@ -416,4 +422,28 @@ def delete_user_role(chat_id: str) -> None:
     finally:
         conn.close()
 
+# ──────────────────────────────────────────────────────────────
+# Global Settings Storage
+# ──────────────────────────────────────────────────────────────
 
+def get_setting(key: str, default: str = None) -> str | None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        row = conn.execute("SELECT value FROM global_settings WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else default
+    except sqlite3.OperationalError:
+        # Table might not exist yet if init_db() hasn't run
+        return default
+    finally:
+        conn.close()
+
+def set_setting(key: str, value: str) -> None:
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO global_settings (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+        """, (key, value))
+        conn.commit()
+    finally:
+        conn.close()
