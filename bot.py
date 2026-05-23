@@ -195,7 +195,7 @@ def cmd_ai(chat_id: str, prompt: str, media: dict = None) -> None:
         send_text(chat_id, f"❌ Sorry, I encountered an error while processing your request.")
 
 
-def cmd_spam(chat_id: str, raw_body: str, sender_id: str) -> None:
+def cmd_spam(chat_id: str, raw_body: str, sender_id: str, pushname: str = "") -> None:
     """Handle: spam <nomor_wa> [jumlah]"""
     parts = raw_body.split()
     if len(parts) < 2:
@@ -223,14 +223,21 @@ def cmd_spam(chat_id: str, raw_body: str, sender_id: str) -> None:
     if count < 1:
         count = 1
 
-    sender_name = sender_id.split('@')[0]
+    # Format the caller's name/link safely
+    if pushname:
+        caller_display = f"*{pushname}*"
+    elif "@lid" in sender_id:
+        caller_display = "seseorang"
+    else:
+        # It's a normal @c.us phone number
+        caller_display = f"wa.me/{sender_id.split('@')[0]}"
     
     send_text(chat_id, f"⏳ Sedang mengirim {count} pesan ke {target}...")
     
     def _spam_worker():
         import time
         for i in range(count):
-            send_text(target_chat_id, f"🚨 *PANGGILAN URGENT!* 🚨\nKamu dipanggil oleh wa.me/{sender_name}! Tolong cek WhatsApp sekarang. ({i+1}/{count})")
+            send_text(target_chat_id, f"🚨 *PANGGILAN URGENT!* 🚨\nKamu dipanggil oleh {caller_display}! Tolong cek WhatsApp sekarang. ({i+1}/{count})")
             time.sleep(2)
         send_text(chat_id, f"✅ Selesai mengirim {count} pesan ke {target}")
 
@@ -375,7 +382,8 @@ def handle_message(data: dict) -> None:
         send_text(chat_id, "pong 🏓")
         
     elif body.startswith("spam "):
-        cmd_spam(chat_id, raw_body, sender_id)
+        pushname = data.get("pushname") or data.get("notifyName") or ""
+        cmd_spam(chat_id, raw_body, sender_id, pushname)
 
     elif body == "help":
         help_text = (
