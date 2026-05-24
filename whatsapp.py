@@ -127,6 +127,17 @@ def get_group_info(group_id: str) -> dict:
         logger.error("❌ Failed to get group info %s: %s", group_id, exc)
         return {"success": False, "error": str(exc)}
 
+def get_contact_info(contact_id: str) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/contacts/{contact_id}"
+    headers = {"X-API-Key": OPENWA_API_KEY}
+    try:
+        resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return {"success": True, "data": resp.json()}
+    except Exception as exc:
+        logger.error("❌ Failed to get contact info %s: %s", contact_id, exc)
+        return {"success": False, "error": str(exc)}
+
 def leave_group(group_id: str) -> dict:
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/leave"
     headers = {"X-API-Key": OPENWA_API_KEY}
@@ -175,11 +186,12 @@ def add_group_participant(group_id: str, participants: list) -> dict:
         return {"success": False, "error": str(exc)}
 
 def remove_group_participant(group_id: str, participants: list) -> dict:
+    import json
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
     payload = {"participants": participants}
     try:
-        resp = requests.delete(url, json=payload, headers=headers, timeout=30)
+        resp = requests.request("DELETE", url, data=json.dumps(payload), headers=headers, timeout=30)
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as exc:

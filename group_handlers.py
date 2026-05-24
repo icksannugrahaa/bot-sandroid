@@ -31,6 +31,16 @@ def clean_number(num_str: str) -> str:
         return f"{cleaned}@lid"
     return f"{cleaned}@c.us"
 
+def resolve_lid_to_cus(target: str) -> str:
+    if target.endswith("@lid"):
+        contact_res = whatsapp.get_contact_info(target)
+        if contact_res.get("success"):
+            contact_data = contact_res.get("data", {})
+            real_number = contact_data.get("number")
+            if real_number:
+                return f"{real_number}@c.us"
+    return target
+
 def group_create_cmd(send_text, chat_id, raw_body):
     parts = raw_body.split()
     if len(parts) < 3:
@@ -129,36 +139,36 @@ def admin_add_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *admin add <nomor>*")
-    target = clean_number(parts[2])
+    target = resolve_lid_to_cus(clean_number(parts[2]))
     res = whatsapp.add_group_admin(chat_id, [target])
-    if res.get("success"): send_text(chat_id, f"✅ Berhasil mengangkat {target.replace('@c.us','')} menjadi admin.")
+    if res.get("success"): send_text(chat_id, f"✅ Berhasil mengangkat {target.replace('@c.us','').replace('@lid','')} menjadi admin.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
 
 def admin_remove_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *admin remove <nomor>*")
-    target = clean_number(parts[2])
+    target = resolve_lid_to_cus(clean_number(parts[2]))
     res = whatsapp.remove_group_admin(chat_id, [target])
-    if res.get("success"): send_text(chat_id, f"✅ Berhasil menurunkan {target.replace('@c.us','')} dari admin.")
+    if res.get("success"): send_text(chat_id, f"✅ Berhasil menurunkan {target.replace('@c.us','').replace('@lid','')} dari admin.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
 
 def user_add_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user add <nomor>*")
-    target = clean_number(parts[2])
+    target = resolve_lid_to_cus(clean_number(parts[2]))
     res = whatsapp.add_group_participant(chat_id, [target])
-    if res.get("success"): send_text(chat_id, f"✅ Berhasil menambahkan {target.replace('@c.us','')} ke grup.")
+    if res.get("success"): send_text(chat_id, f"✅ Berhasil menambahkan {target.replace('@c.us','').replace('@lid','')} ke grup.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
 
 def user_kick_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user kick <nomor>*")
-    target = clean_number(parts[2])
+    target = resolve_lid_to_cus(clean_number(parts[2]))
     res = whatsapp.remove_group_participant(chat_id, [target])
-    if res.get("success"): send_text(chat_id, f"✅ Berhasil mengeluarkan {target.replace('@c.us','')} dari grup.")
+    if res.get("success"): send_text(chat_id, f"✅ Berhasil mengeluarkan {target.replace('@c.us','').replace('@lid','')} dari grup.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
 
 def user_mute_cmd(send_text, chat_id, raw_body, data):
