@@ -34,10 +34,12 @@ def clean_number(num_str: str) -> str:
 def resolve_lid_to_cus(target: str) -> str:
     if target.endswith("@lid"):
         contact_res = whatsapp.get_contact_info(target)
+        logger.info("resolve_lid_to_cus contact_res: %s", contact_res)
         if contact_res.get("success"):
             contact_data = contact_res.get("data", {})
             real_number = contact_data.get("number")
             if real_number:
+                logger.info("Resolved %s to %s@c.us", target, real_number)
                 return f"{real_number}@c.us"
     return target
 
