@@ -147,18 +147,20 @@ def cmd_generate_code(chat_id: str, phone: str) -> None:
     send_text(chat_id, login_code)
 
 
-def cmd_ai(chat_id: str, prompt: str, media: dict = None) -> None:
+def cmd_ai(chat_id: str, prompt: str, media: dict = None, quoted_text: str = None) -> None:
     """Handle: AI chat (default fallback)"""
     if not ai_client:
         send_text(chat_id, "⚠️ AI Chat is not configured yet. Please configure GITHUB_TOKEN in the .env file.")
         return
 
-    if not prompt.strip() and not media:
+    if not prompt.strip() and not media and not quoted_text:
         return
         
     user_content = []
     
-    if prompt.strip():
+    if quoted_text:
+        user_content.append({"type": "text", "text": f"Context/Quoted message:\n\"{quoted_text}\"\n\nQuestion/Prompt:\n{prompt.strip()}"})
+    elif prompt.strip():
         user_content.append({"type": "text", "text": prompt.strip()})
     else:
         if media:
@@ -372,6 +374,30 @@ def handle_message(data: dict) -> None:
             raw_body = re.sub(r"@\S+", "", raw_body, count=1).strip()
 
     body = raw_body.lower()
+
+    # ── Quoted Message Target Injection ────────────────────────
+    # If the user replies to a message with a command like "user mute",
+    # automatically append the sender of the quoted message as the target.
+    quoted_msg = data.get("quotedMessage", {})
+    if isinstance(quoted_msg, dict):
+        quoted_id = quoted_msg.get("id", "")
+        if "_" in quoted_id:
+            parts = quoted_id.split("_")
+            target_id = ""
+            if len(parts) >= 4:
+                target_id = parts[3]  # Group message
+            elif len(parts) == 3:
+                target_id = parts[1]  # Private message
+                
+            if target_id:
+                cmds_requiring_target = [
+                    "user mute", "user unmute", "user kick", 
+                    "user add", "admin add", "admin remove"
+                ]
+                # If body is exactly the command without arguments, append target_id
+                if body in cmds_requiring_target:
+                    raw_body += f" {target_id}"
+                    body += f" {target_id.lower()}"
 
     def check_rbac(feature: str) -> bool:
         if rbac.has_permission(sender_id, feature):
@@ -644,7 +670,9 @@ def handle_message(data: dict) -> None:
     else:
         # Default fallback: Treat as an AI prompt
         if check_rbac("ai"):
-            cmd_ai(chat_id, raw_body, data.get("media"))
+            quoted_msg = data.get("quotedMessage", {})
+            quoted_text = quoted_msg.get("body") if isinstance(quoted_msg, dict) else None
+            cmd_ai(chat_id, raw_body, data.get("media"), quoted_text)
 
 
 @app.route("/webhook", methods=["POST"])
