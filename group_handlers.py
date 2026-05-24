@@ -37,10 +37,10 @@ def resolve_lid_to_cus(target: str) -> str:
         logger.info("resolve_lid_to_cus contact_res: %s", contact_res)
         if contact_res.get("success"):
             contact_data = contact_res.get("data", {})
-            real_number = contact_data.get("number")
-            if real_number:
-                logger.info("Resolved %s to %s@c.us", target, real_number)
-                return f"{real_number}@c.us"
+            real_id = contact_data.get("id")
+            if real_id and real_id.endswith("@c.us"):
+                logger.info("Resolved %s to %s", target, real_id)
+                return real_id
     return target
 
 def group_create_cmd(send_text, chat_id, raw_body):
