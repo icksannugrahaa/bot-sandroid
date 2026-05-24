@@ -7,6 +7,10 @@ from users import is_admin
 logger = logging.getLogger(__name__)
 
 def clean_number(num_str: str) -> str:
+    # Remove leading @ if the user used a plain text mention like @1234
+    if num_str.startswith("@"):
+        num_str = num_str[1:]
+        
     # If the user provides a full ID with @ (like @lid or @c.us), preserve the domain
     if "@" in num_str:
         num_part, domain_part = num_str.split("@", 1)
@@ -16,11 +20,15 @@ def clean_number(num_str: str) -> str:
             cleaned_num = "628" + cleaned_num[2:]
         return f"{cleaned_num}@{domain_part}"
     
-    # Otherwise, assume it's a regular phone number and append @c.us
+    # Otherwise, assume it's a regular phone number
     cleaned = re.sub(r'\D', '', num_str)
     if not cleaned: return ""
     if cleaned.startswith("08"):
         cleaned = "628" + cleaned[2:]
+        
+    # Linked Device IDs (LIDs) are usually 15 digits long
+    if len(cleaned) >= 15:
+        return f"{cleaned}@lid"
     return f"{cleaned}@c.us"
 
 def group_create_cmd(send_text, chat_id, raw_body):
