@@ -122,7 +122,7 @@ def get_group_info(group_id: str) -> dict:
     try:
         resp = requests.get(url, headers=headers, timeout=30)
         resp.raise_for_status()
-        return resp.json()
+        return {"success": True, "data": resp.json()}
     except Exception as exc:
         logger.error("❌ Failed to get group info %s: %s", group_id, exc)
         return {"success": False, "error": str(exc)}
@@ -182,9 +182,12 @@ def remove_group_participant(group_id: str, participants: list) -> dict:
         resp = requests.delete(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
         return resp.json()
-    except Exception as exc:
-        logger.error("❌ Failed to remove participant from group %s: %s", group_id, exc)
-        return {"success": False, "error": str(exc)}
+    except requests.exceptions.RequestException as exc:
+        err_msg = str(exc)
+        if exc.response is not None:
+            err_msg += f" - {exc.response.text}"
+        logger.error("❌ Failed to remove participant from group %s: %s", group_id, err_msg)
+        return {"success": False, "error": err_msg}
 
 def delete_message(chat_id: str, message_id: str, for_everyone: bool = True) -> dict:
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/messages/delete"
