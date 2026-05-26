@@ -168,35 +168,37 @@ def has_permission(chat_id: str, feature: str) -> bool:
 
 # ── Feature group definitions (canonical order for Excel template) ──────
 _FEATURE_GROUPS = [
-    ("📅 Attendance", [
+    ("attendance", [
         "checkin", "checkout", "list history",
     ]),
-    ("📅 Attendance Configuration", [
+    ("attendance configuration", [
         "set auto", "set checkin timerange", "set checkout timerange",
         "set notes", "clear notes",
         "set location", "list location", "add location",
         "attendance list users", "attendance add user", "attendance login",
         "attendance register imei", "attendance generate device id",
-        "set ambri pass", "set ambri totp", "generate code",
     ]),
-    ("🤖 Bot User Management", [
+    ("bot user management", [
         "bot users", "bot ban", "bot unban", "set role",
     ]),
-    ("👥 Group Management", [
+    ("group management", [
         "group create", "group update", "group users", "group leave",
     ]),
-    ("🛡️ Group Admin Management", [
+    ("group admin management", [
         "admin add", "admin remove", "user add", "user kick",
         "user mute", "user unmute", "check id",
     ]),
-    ("🔑 RBAC Management", [
+    ("rbac management", [
         "rbac list users", "rbac download", "rbac upload",
     ]),
-    ("🔧 Maintenance", [
+    ("maintenance", [
         "maintenance on", "maintenance off", "maintenance status",
     ]),
-    ("💬 WhatsApp General", [
+    ("whatsapp general", [
         "spam", "ai", "start", "hello", "ping", "help",
+    ]),
+    ("ambri", [
+        "set ambri pass", "set ambri totp", "generate code",
     ]),
 ]
 
@@ -232,7 +234,7 @@ def generate_template_b64() -> str:
 
     # Build matrix: dict[feature][role] = is_active
     matrix: dict[str, dict[str, bool]] = {}
-    all_roles_set: set[str] = set()
+    all_roles_set: set[str] = set(DEFAULT_ROLES)
     for p in perms:
         matrix.setdefault(p["feature"], {})[p["role"]] = p["is_active"]
         all_roles_set.add(p["role"])
@@ -278,24 +280,13 @@ def generate_template_b64() -> str:
     for g_idx, (group_name, group_features) in enumerate(_FEATURE_GROUPS):
         row_fill = GROUP_FILLS[g_idx % len(GROUP_FILLS)]
 
-        # --- group header row (visual separator, feature cell left blank) ---
-        g_row_values = [None, group_name] + [""] * len(roles)
-        ws.append(g_row_values)
-        for col_idx in range(1, len(g_row_values) + 1):
-            cell = ws.cell(row=current_row, column=col_idx)
-            cell.fill      = GROUP_HEADER_FILL
-            cell.font      = GROUP_HEADER_FONT
-            cell.alignment = LEFT
-            cell.border    = thin_border
-        ws.row_dimensions[current_row].height = 18
-        current_row += 1
-
         # --- feature data rows ---
         for feature in group_features:
-            if feature not in matrix:
-                continue  # not in DB yet, skip
+            # Fallback to DEFAULT_MATRIX if feature is not yet in the DB
+            feat_matrix = matrix.get(feature, DEFAULT_MATRIX.get(feature, {}))
+            
             row_vals = [feature, group_name] + [
-                "active" if matrix[feature].get(role, False) else "non"
+                "active" if feat_matrix.get(role, False) else "non"
                 for role in roles
             ]
             ws.append(row_vals)
