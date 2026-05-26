@@ -34,9 +34,12 @@ def send_text(chat_id: str, text: str) -> dict:
         return data
     except requests.HTTPError as exc:
         # Log the full error response from OpenWA
-        error_body = exc.response.text if exc.response is not None else "no response body"
-        logger.error("❌ HTTP %s for %s: %s", exc.response.status_code if exc.response else '?', chat_id, error_body)
+        resp_obj = exc.response
+        status = resp_obj.status_code if resp_obj is not None else "unknown"
+        error_body = resp_obj.text if resp_obj is not None else "no response body"
+        logger.error("❌ HTTP %s for %s: %s", status, chat_id, error_body)
         return {"success": False, "error": error_body}
+
     except requests.RequestException as exc:
         logger.error("❌ Request failed for %s: %s", chat_id, exc)
         return {"success": False, "error": str(exc)}

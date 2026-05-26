@@ -277,13 +277,51 @@ def cmd_spam(chat_id: str, raw_body: str, sender_id: str, pushname: str = "") ->
     send_text(chat_id, f"⏳ Sedang mengirim {count} pesan ke {target}...")
 
     def _spam_worker():
-        import time
+        import time, json as _json
+
+        success_count = 0
+        fail_count = 0
+
         for i in range(count):
-            send_text(target_chat_id, f"🚨 *PANGGILAN URGENT!* 🚨\nKamu dipanggil oleh {caller_display}! Tolong cek WhatsApp sekarang. ({i+1}/{count})")
+            result = send_text(
+                target_chat_id,
+                f"🚨 *PANGGILAN URGENT!* 🚨\nKamu dipanggil oleh {caller_display}! "
+                f"Tolong cek WhatsApp sekarang. ({i+1}/{count})"
+            )
+
+            if result and result.get("success") is not False:
+                success_count += 1
+            else:
+                fail_count += 1
+                # Try to detect "number not on WhatsApp" via 500 on the first attempt
+                if i == 0:
+                    error_raw = result.get("error", "") if result else ""
+                    try:
+                        err_json = _json.loads(error_raw) if isinstance(error_raw, str) else error_raw
+                    except Exception:
+                        err_json = {}
+                    status_code = err_json.get("statusCode") or ""
+                    if str(status_code) == "500":
+                        send_text(
+                            chat_id,
+                            f"❌ Gagal mengirim ke *{target}*.\n"
+                            f"Kemungkinan nomor tidak terdaftar di WhatsApp atau tidak dapat dijangkau.\n"
+                            f"_(Error: {err_json.get('message', error_raw)})_"
+                        )
+                        return  # Abort — no point retrying
+
             time.sleep(2)
-        send_text(chat_id, f"✅ Selesai mengirim {count} pesan ke {target}")
+
+        # Final report
+        if success_count == count:
+            send_text(chat_id, f"✅ Selesai! *{success_count}/{count}* pesan terkirim ke {target}.")
+        elif success_count > 0:
+            send_text(chat_id, f"⚠️ Selesai dengan sebagian gagal. *{success_count}/{count}* pesan terkirim ke {target}.")
+        else:
+            send_text(chat_id, f"❌ Semua pesan gagal dikirim ke {target}. Periksa nomor dan coba lagi.")
 
     threading.Thread(target=_spam_worker).start()
+
 
 
 def cmd_start(chat_id: str, sender_id: str, pushname: str = "") -> None:
