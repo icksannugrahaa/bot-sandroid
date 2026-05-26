@@ -204,6 +204,21 @@ def is_already_checked_out(alias: str, date_key: str) -> bool:
     return data.get(f"OUT_{date_key}") == True
 
 
+def _mark_checked_in(alias: str, date_key: str) -> None:
+    """Persist the automation IN-done flag so subsequent scheduler ticks skip this user."""
+    data = get_attendance_status(alias)
+    data[f"IN_{date_key}"] = True
+    save_attendance_status(alias, data)
+
+
+def _mark_checked_out(alias: str, date_key: str) -> None:
+    """Persist the automation OUT-done flag so subsequent scheduler ticks skip this user."""
+    data = get_attendance_status(alias)
+    data[f"OUT_{date_key}"] = True
+    save_attendance_status(alias, data)
+
+
+
 def ensure_schedule(alias: str, date_key: str, user: dict) -> dict:
     sched = load_daily_schedule(alias, date_key)
     if sched:
@@ -282,7 +297,17 @@ def run():
                     force_login(alias, user)
                     bot_log(f"[AUTO] [{alias}] Eksekusi absen masuk @ {sched['in']}")
                     msg = check_in(alias)
-                    notify_admin(msg)
+
+                    # Always mark done so subsequent ticks skip this block,
+                    # even when check_in() returned "Sudah absen masuk hari ini"
+                    # (meaning attendance_storage was already set by a manual check-in).
+                    _mark_checked_in(alias, date_key)
+
+                    # Only forward real success messages — not the "already done" guard
+                    if "sudah absen" not in msg.lower():
+                        notify_admin(msg)
+                    else:
+                        bot_log(f"[AUTO] [{alias}] Sudah tercatat masuk, skip notif admin.")
 
             # ===== CHECK OUT =====
             elif not is_already_checked_out(alias, date_key):
@@ -292,8 +317,15 @@ def run():
                     force_login(alias, user)
                     bot_log(f"[AUTO] [{alias}] Eksekusi absen pulang @ {sched['out']}")
                     msg = check_out(alias)
-                    notify_admin(msg)
-                    notify_tomorrow_status(alias, now_dt, context='checkout')
+
+                    # Same guard: mark done regardless of outcome
+                    _mark_checked_out(alias, date_key)
+
+                    if "sudah absen" not in msg.lower():
+                        notify_admin(msg)
+                        notify_tomorrow_status(alias, now_dt, context='checkout')
+                    else:
+                        bot_log(f"[AUTO] [{alias}] Sudah tercatat pulang, skip notif admin.")
 
         except Exception as e:
             bot_log(f"[AUTO] [{alias}] ERROR: {e}")
