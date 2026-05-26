@@ -82,50 +82,143 @@ def has_permission(chat_id: str, feature: str) -> bool:
         return True
     return False
 
+
+# ── Feature group definitions (canonical order) ──────────────────────────
+_FEATURE_GROUPS = [
+    ("🧠 AI Chat",             ["ai"]),
+    ("📅 Attendance",          ["attendance", "konfigurasi", "lokasi",
+                                  "user_management", "login_code"]),
+    ("🤖 Bot User Management", ["rbac"]),
+    ("💬 WhatsApp General",    ["spam", "group_management", "admin_group"]),
+    ("🔑 User Access Feature", ["maintenance"]),
+]
+
+# Friendly descriptions shown in the "description" column
+_FEATURE_DESC = {
+    "ai":               "AI Chat — balas pesan biasa",
+    "attendance":       "Attendance — checkin / checkout / history",
+    "konfigurasi":      "Attendance — set auto, timerange, notes",
+    "lokasi":           "Attendance — list/add location",
+    "user_management":  "Attendance — kelola user absensi",
+    "login_code":       "Attendance — login code / TOTP",
+    "spam":             "Spam panggilan ke nomor lain",
+    "rbac":             "Bot User Management — ban/unban/set role/rbac",
+    "group_management": "WhatsApp — buat/edit/keluar grup",
+    "admin_group":      "WhatsApp — admin add/remove, mute, check id",
+    "maintenance":      "Mode maintenance (blokir non-admin)",
+}
+
+# Non-role metadata columns the parser must skip
+_SKIP_COLUMNS = {"feature", "group", "description", "category", "keterangan"}
+
+
 def generate_template_b64() -> str:
-    """Generates an Excel template with current RBAC and returns it as a base64 string."""
+    """Generates a styled Excel RBAC template grouped by feature category."""
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "RBAC Matrix"
-    
+
     perms = storage.get_all_rbac_permissions()
-    
-    # Find all unique features and roles from the DB
-    features = list(set([p["feature"] for p in perms]))
-    roles = list(set([p["role"] for p in perms]))
-    
-    # Sort for consistency (super admin, admin, user, then others)
-    def role_sort_key(r):
-        order = {"super admin": 0, "admin": 1, "user": 2}
-        return order.get(r.lower(), 99)
-        
-    roles.sort(key=role_sort_key)
-    
-    # Header row
-    headers = ["feature"] + roles
-    ws.append(headers)
-    
-    # Build a lookup dict: dict[feature][role] = is_active
-    matrix = {}
+
+    # Build matrix: dict[feature][role] = is_active
+    matrix: dict[str, dict[str, bool]] = {}
+    all_roles_set: set[str] = set()
     for p in perms:
-        if p["feature"] not in matrix:
-            matrix[p["feature"]] = {}
-        matrix[p["feature"]][p["role"]] = p["is_active"]
-        
-    # Populate rows
-    for feature in sorted(features):
-        row = [feature]
-        for role in roles:
-            is_active = matrix.get(feature, {}).get(role, False)
-            row.append("active" if is_active else "non")
-        ws.append(row)
-        
-    # Save to bytes
+        matrix.setdefault(p["feature"], {})[p["role"]] = p["is_active"]
+        all_roles_set.add(p["role"])
+
+    def role_sort_key(r: str) -> int:
+        return {"super admin": 0, "admin": 1, "user": 2}.get(r.lower(), 99)
+
+    roles = sorted(all_roles_set, key=role_sort_key)
+
+    # ── Styles ────────────────────────────────────────────────────────────
+    HEADER_FILL  = PatternFill("solid", fgColor="1F3864")  # dark navy
+    HEADER_FONT  = Font(bold=True, color="FFFFFF", size=11)
+    GROUP_FILLS  = [
+        PatternFill("solid", fgColor="E8F4FD"),  # AI       – light blue
+        PatternFill("solid", fgColor="EBF5EB"),  # Attend   – light green
+        PatternFill("solid", fgColor="FFF3CD"),  # Bot User – light amber
+        PatternFill("solid", fgColor="F5E6FF"),  # WA       – light purple
+        PatternFill("solid", fgColor="FFE8E8"),  # Access   – light red
+    ]
+    GROUP_HEADER_FILL  = PatternFill("solid", fgColor="2E5090")
+    GROUP_HEADER_FONT  = Font(bold=True, color="FFFFFF", size=10)
+    ACTIVE_FILL        = PatternFill("solid", fgColor="C6EFCE")  # green tint
+    NON_FILL           = PatternFill("solid", fgColor="FFCCCC")  # red tint
+    CENTER             = Alignment(horizontal="center", vertical="center")
+    LEFT               = Alignment(horizontal="left",   vertical="center")
+    thin_side          = Side(style="thin", color="CCCCCC")
+    thin_border        = Border(left=thin_side, right=thin_side,
+                                top=thin_side, bottom=thin_side)
+
+    # ── Header row ────────────────────────────────────────────────────────
+    header = ["feature", "group"] + roles
+    ws.append(header)
+    for col_idx, _ in enumerate(header, start=1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.fill   = HEADER_FILL
+        cell.font   = HEADER_FONT
+        cell.alignment = CENTER if col_idx > 2 else LEFT
+        cell.border = thin_border
+
+    current_row = 2
+
+    # ── Feature rows grouped ──────────────────────────────────────────────
+    for g_idx, (group_name, group_features) in enumerate(_FEATURE_GROUPS):
+        row_fill = GROUP_FILLS[g_idx % len(GROUP_FILLS)]
+
+        # --- group header row (visual separator, feature cell left blank) ---
+        g_row_values = [None, group_name] + [""] * len(roles)
+        ws.append(g_row_values)
+        for col_idx in range(1, len(g_row_values) + 1):
+            cell = ws.cell(row=current_row, column=col_idx)
+            cell.fill      = GROUP_HEADER_FILL
+            cell.font      = GROUP_HEADER_FONT
+            cell.alignment = LEFT
+            cell.border    = thin_border
+        ws.row_dimensions[current_row].height = 18
+        current_row += 1
+
+        # --- feature data rows ---
+        for feature in group_features:
+            if feature not in matrix:
+                continue  # not in DB yet, skip
+            row_vals = [feature, group_name] + [
+                "active" if matrix[feature].get(role, False) else "non"
+                for role in roles
+            ]
+            ws.append(row_vals)
+            for col_idx, val in enumerate(row_vals, start=1):
+                cell = ws.cell(row=current_row, column=col_idx)
+                cell.border = thin_border
+                if col_idx <= 2:
+                    cell.fill      = row_fill
+                    cell.alignment = LEFT
+                    if col_idx == 1:
+                        cell.font = Font(bold=True, size=10)
+                else:
+                    cell.alignment = CENTER
+                    cell.fill = ACTIVE_FILL if val == "active" else NON_FILL
+            current_row += 1
+
+    # ── Column widths ─────────────────────────────────────────────────────
+    ws.column_dimensions["A"].width = 22   # feature key
+    ws.column_dimensions["B"].width = 30   # group name
+    for i, _ in enumerate(roles, start=3):
+        ws.column_dimensions[get_column_letter(i)].width = 14
+
+    # Freeze header row
+    ws.freeze_panes = "C2"
+
     buffer = io.BytesIO()
     wb.save(buffer)
     buffer.seek(0)
-    
     return base64.b64encode(buffer.read()).decode("utf-8")
+
 
 def parse_template_b64(base64_data: str) -> str:
     """Parses an uploaded base64 Excel template and applies the new RBAC matrix."""
@@ -134,39 +227,62 @@ def parse_template_b64(base64_data: str) -> str:
         buffer = io.BytesIO(binary_data)
         wb = openpyxl.load_workbook(buffer)
         ws = wb.active
-        
+
         # Read headers
         rows = list(ws.iter_rows(values_only=True))
         if not rows or len(rows) < 2:
             return "❌ Format Excel tidak valid. File kosong atau tidak memiliki baris data."
-            
-        headers = [str(h).strip().lower() for h in rows[0] if h is not None]
-        
+
+        headers = [
+            str(h).strip().lower() if h is not None else ""
+            for h in rows[0]
+        ]
+
         if "feature" not in headers:
             return "❌ Format Excel tidak valid. Kolom 'feature' tidak ditemukan."
-            
+
         feature_idx = headers.index("feature")
-        roles = [h for i, h in enumerate(headers) if i != feature_idx]
-        
+
+        # Role columns = everything that is NOT a known metadata column
+        role_columns = [
+            (i, h) for i, h in enumerate(headers)
+            if h and h not in _SKIP_COLUMNS
+        ]
+
         new_perms = []
         for row in rows[1:]:
-            if not row or row[feature_idx] is None:
+            # Skip group-header rows (feature cell is None/empty)
+            if not row or feature_idx >= len(row) or not row[feature_idx]:
                 continue
-                
+
             feature = str(row[feature_idx]).strip()
-            
-            for role in roles:
-                role_idx = headers.index(role)
-                val = str(row[role_idx]).strip().lower() if role_idx < len(row) and row[role_idx] is not None else "non"
-                is_active = val in ["active", "true", "yes", "1", "aktif"]
+            if not feature:
+                continue
+
+            for col_idx, role in role_columns:
+                val = (
+                    str(row[col_idx]).strip().lower()
+                    if col_idx < len(row) and row[col_idx] is not None
+                    else "non"
+                )
+                is_active = val in {"active", "true", "yes", "1", "aktif"}
                 new_perms.append({"feature": feature, "role": role, "is_active": is_active})
-                
+
+        if not new_perms:
+            return "❌ Tidak ada data RBAC yang valid ditemukan di file."
+
         storage.set_rbac_permissions(new_perms)
-        return "✅ Konfigurasi RBAC berhasil diupdate dari Excel!"
-        
+        feature_count = len(set(p["feature"] for p in new_perms))
+        role_count    = len(set(p["role"]    for p in new_perms))
+        return (
+            f"✅ Konfigurasi RBAC berhasil diupdate dari Excel!\n"
+            f"📊 {feature_count} fitur × {role_count} role diproses."
+        )
+
     except Exception as e:
         logger.error(f"Error parsing RBAC Excel: {e}")
         return f"❌ Gagal memproses file Excel: {str(e)}"
+
 
 def assign_role(executor_chat_id: str, target_number: str, target_role: str) -> str:
     """Assign a role to a number, adhering to RBAC assignment rules."""
