@@ -223,7 +223,22 @@ def list_users_with_roles() -> str:
     if not perms:
         init_default_rbac()
         perms = storage.get_all_rbac_permissions()
-        
+
+    # Friendly label map: internal key → display name (grouped)
+    FEATURE_LABELS = {
+        "ai":               "🧠 AI Chat",
+        "attendance":       "📅 Attendance (Absensi)",
+        "konfigurasi":      "📅 Attendance (Konfigurasi)",
+        "lokasi":           "📅 Attendance (Lokasi)",
+        "user_management":  "📅 Attendance (User Mgmt)",
+        "login_code":       "📅 Attendance (Login Code)",
+        "spam":             "💬 Spam",
+        "rbac":             "🤖 Bot User Management",
+        "group_management": "💬 WhatsApp (Group Mgmt)",
+        "admin_group":      "💬 WhatsApp (Admin Group)",
+        "maintenance":      "🔑 Maintenance",
+    }
+
     role_features = {}
     for p in perms:
         r = p["role"].lower()
@@ -250,15 +265,17 @@ def list_users_with_roles() -> str:
             else:
                 status = "Active (No Alias)"
                 
-        features = role_features.get(role.lower(), [])
-        feature_str = ", ".join(sorted(features)) if features else "-"
+        raw_features = role_features.get(role.lower(), [])
+        feature_labels = sorted(set(FEATURE_LABELS.get(f, f) for f in raw_features))
+        feature_str = "\n    " + "\n    ".join(feature_labels) if feature_labels else "-"
         
         display_id = chat_id.replace("@c.us", "")
         
         msg += f"\n👤 *{display_id}*\n"
-        msg += f"• Type: `{role}`\n"
-        msg += f"• Status: `{status}`\n"
-        msg += f"• Features: _{feature_str}_\n"
+        msg += f"• Role   : `{role}`\n"
+        msg += f"• Status : `{status}`\n"
+        msg += f"• Fitur  : {feature_str}\n"
         
     return msg
+
 

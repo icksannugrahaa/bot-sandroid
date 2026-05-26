@@ -670,52 +670,68 @@ def handle_message(data: dict) -> None:
 
     elif body == "help":
         lines = ["🤖 *Bot Commands*\n"]
+
+        # ── 📋 General ──────────────────────────────────────────
         lines.append("📋 *General*")
         lines.append("• *start* — Daftar ke bot (simpan data kamu)")
         lines.append("• *hello* — Say hello")
         lines.append("• *ping* — Check if bot is alive")
         lines.append("• *my id* — Check your exact ID (for admin setup)")
-        
-        # We don't use check_rbac here to avoid sending an error message to the user,
-        # we just want to silently check if they have permission to see it.
         if rbac.has_permission(sender_id, "spam"):
             lines.append("• *spam <nomor> [jumlah]* — Spam pesan (max 5)")
-            
         lines.append("• *help* — Show this help message\n")
 
-        if rbac.has_permission(sender_id, "attendance"):
-            lines.append("🏃‍♂️ *Attendance*")
-            lines.append("• *checkin [alias]* - Absen masuk")
-            lines.append("• *checkout [alias]* - Absen pulang")
-            lines.append("• *list history [alias] [week/month]* - Cek riwayat\n")
+        # ── 🧠 AI Chat ───────────────────────────────────────────
+        if rbac.has_permission(sender_id, "ai"):
+            lines.append("🧠 *AI Chat*")
+            lines.append("• _Kirim pesan biasa apa saja dan AI akan membalas!_\n")
 
-        if rbac.has_permission(sender_id, "konfigurasi"):
-            lines.append("⚙️ *Konfigurasi*")
-            lines.append("• *set auto on/off [alias]* - Set automasi harian")
-            lines.append("• *set checkin timerange [alias] HH:MM HH:MM* - Waktu acak masuk")
-            lines.append("• *set checkout timerange [alias] HH:MM HH:MM* - Waktu acak pulang")
-            lines.append("• *set notes [alias] [notes]* - Custom notes absen")
-            lines.append("• *clear notes [alias]* - Reset notes absen\n")
+        # ── 📅 Attendance ────────────────────────────────────────
+        has_attendance    = rbac.has_permission(sender_id, "attendance")
+        has_konfigurasi   = rbac.has_permission(sender_id, "konfigurasi")
+        has_lokasi        = rbac.has_permission(sender_id, "lokasi")
+        has_user_mgmt     = rbac.has_permission(sender_id, "user_management")
+        has_login_code    = rbac.has_permission(sender_id, "login_code")
 
-        if rbac.has_permission(sender_id, "lokasi"):
-            lines.append("📍 *Lokasi*")
-            lines.append("• *list location* - Lihat daftar semua lokasi")
-            lines.append("• *add location [nama] [lat,lng]* - Tambah lokasi baru\n")
+        if any([has_attendance, has_konfigurasi, has_lokasi, has_user_mgmt, has_login_code]):
+            lines.append("📅 *Attendance*")
 
-        if rbac.has_permission(sender_id, "user_management"):
-            lines.append("👥 *Attendance User Management*")
-            lines.append("• *attendance list users* - Lihat attendance user terdaftar")
-            lines.append("• *attendance add user <alias> <user> <pass> <imei>* - Tambah attendance user")
-            lines.append("• *attendance login [alias]* - Login paksa/refresh token")
-            lines.append("• *attendance register imei [alias]* - Daftarkan IMEI saat ini")
-            lines.append("• *attendance generate device id [alias]* - Generate IMEI baru\n")
+            if has_attendance:
+                lines.append("  _Absensi_")
+                lines.append("  • *checkin [alias]* — Absen masuk")
+                lines.append("  • *checkout [alias]* — Absen pulang")
+                lines.append("  • *list history [alias] [week/month]* — Cek riwayat absen")
 
-        if rbac.has_permission(sender_id, "login_code"):
-            lines.append("🔐 *Login Code*")
-            lines.append("• *set ambri pass <password>* — Set your password")
-            lines.append("• *set ambri totp <secret>* — Set your TOTP secret")
-            lines.append("• *generate code* — Get your login code\n")
+            if has_konfigurasi:
+                lines.append("  _Konfigurasi_")
+                lines.append("  • *set auto on/off [alias]* — Set automasi harian")
+                lines.append("  • *set checkin timerange [alias] HH:MM HH:MM* — Waktu acak masuk")
+                lines.append("  • *set checkout timerange [alias] HH:MM HH:MM* — Waktu acak pulang")
+                lines.append("  • *set notes [alias] [notes]* — Custom notes absen")
+                lines.append("  • *clear notes [alias]* — Reset notes absen")
 
+            if has_lokasi:
+                lines.append("  _Lokasi_")
+                lines.append("  • *list location* — Lihat daftar semua lokasi")
+                lines.append("  • *add location [nama] [lat,lng]* — Tambah lokasi baru")
+
+            if has_user_mgmt:
+                lines.append("  _User Management_")
+                lines.append("  • *attendance list users* — Lihat attendance user terdaftar")
+                lines.append("  • *attendance add user <alias> <user> <pass> <imei>* — Tambah attendance user")
+                lines.append("  • *attendance login [alias]* — Login paksa/refresh token")
+                lines.append("  • *attendance register imei [alias]* — Daftarkan IMEI saat ini")
+                lines.append("  • *attendance generate device id [alias]* — Generate IMEI baru")
+
+            if has_login_code:
+                lines.append("  _Login Code_")
+                lines.append("  • *set ambri pass <password>* — Set your password")
+                lines.append("  • *set ambri totp <secret>* — Set your TOTP secret")
+                lines.append("  • *generate code* — Get your login code")
+
+            lines.append("")  # blank line after section
+
+        # ── 🤖 Bot User Management ───────────────────────────────
         if rbac.has_permission(sender_id, "rbac"):
             lines.append("🤖 *Bot User Management*")
             lines.append("• *bot users* — Lihat semua user yang terdaftar ke bot")
@@ -723,43 +739,58 @@ def handle_message(data: dict) -> None:
             lines.append("• *bot unban <nomor>* — Cabut ban user")
             lines.append("• *set role <nomor> <role>* — Ubah role pengguna\n")
 
-        if rbac.has_permission(sender_id, "rbac"):
-            lines.append("🛡️ *RBAC (Access Control)*")
-            lines.append("• *rbac list users* — List users, status, and features")
-            lines.append("• *rbac download* — Download template Excel RBAC")
-            lines.append("• *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC\n")
+        # ── 💬 WhatsApp General Feature ──────────────────────────
+        has_group_mgmt = rbac.has_permission(sender_id, "group_management")
+        has_admin_grp  = rbac.has_permission(sender_id, "admin_group")
 
-        if rbac.has_permission(sender_id, "group_management"):
-            lines.append("👥 *Group Management*")
-            lines.append("• *group create <nama> [nomor1,nomor2]*")
-            lines.append("• *group update <nama> | <deskripsi>* (atau +gambar)")
-            lines.append("• *group users* — List member")
-            lines.append("• *group leave* — Keluar dari grup\n")
+        if has_group_mgmt or has_admin_grp:
+            lines.append("💬 *WhatsApp General Feature*")
 
-        if rbac.has_permission(sender_id, "admin_group"):
-            lines.append("🛡️ *Admin Group*")
-            lines.append("• *admin add <nomor>* — Jadikan admin")
-            lines.append("• *admin remove <nomor>* — Hapus admin")
-            lines.append("• *user add <nomor>* — Tambah member")
-            lines.append("• *user kick <nomor>* — Keluarkan member")
-            lines.append("• *user mute <nomor>* — Bisu user (pesan otomatis dihapus)")
-            lines.append("• *user unmute <nomor>* — Batal bisu user")
-            lines.append("• *check id @user* — Cek LID/nomor user (hasil dikirim ke super admin via PM)\n")
+            if has_group_mgmt:
+                lines.append("  _Group Management_")
+                lines.append("  • *group create <nama> [nomor1,nomor2]* — Buat grup baru")
+                lines.append("  • *group update <nama> | <deskripsi>* (atau +gambar) — Update info grup")
+                lines.append("  • *group users* — List member grup")
+                lines.append("  • *group leave* — Keluar dari grup")
 
-        if rbac.has_permission(sender_id, "ai"):
-            lines.append("🧠 *AI Chat*")
-            lines.append("• _Just send any normal message and the AI will reply!_\n")
+            if has_admin_grp:
+                lines.append("  _Admin Group_")
+                lines.append("  • *admin add <nomor>* — Jadikan admin")
+                lines.append("  • *admin remove <nomor>* — Hapus admin")
+                lines.append("  • *user add <nomor>* — Tambah member")
+                lines.append("  • *user kick <nomor>* — Keluarkan member")
+                lines.append("  • *user mute <nomor>* — Bisu user (pesan otomatis dihapus)")
+                lines.append("  • *user unmute <nomor>* — Batal bisu user")
+                lines.append("  • *check id @user* — Cek LID/nomor user (dikirim ke super admin via PM)")
 
-        if rbac.has_permission(sender_id, "maintenance"):
-            lines.append("🔧 *Maintenance (Admin)*")
-            lines.append("• *maintenance on* — Aktifkan mode maintenance")
-            lines.append("• *maintenance off* — Matikan mode maintenance")
-            lines.append("• *maintenance status* — Cek status maintenance\n")
+            lines.append("")  # blank line after section
+
+        # ── 🔑 User Access Feature ───────────────────────────────
+        has_rbac        = rbac.has_permission(sender_id, "rbac")
+        has_maintenance = rbac.has_permission(sender_id, "maintenance")
+
+        if has_rbac or has_maintenance:
+            lines.append("🔑 *User Access Feature*")
+
+            if has_rbac:
+                lines.append("  _RBAC (Access Control)_")
+                lines.append("  • *rbac list users* — List users, role, dan fitur aktif")
+                lines.append("  • *rbac download* — Download template Excel RBAC")
+                lines.append("  • *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC")
+
+            if has_maintenance:
+                lines.append("  _Maintenance_")
+                lines.append("  • *maintenance on* — Aktifkan mode maintenance")
+                lines.append("  • *maintenance off* — Matikan mode maintenance")
+                lines.append("  • *maintenance status* — Cek status maintenance")
+
+            lines.append("")
 
         lines.append("Made with 🤖 and ❤️\nBy Sandroid")
-        
+
         help_text = "\n".join(lines)
         send_text(chat_id, help_text)
+
 
     # ── Attendance User Management routing ────────────────────────
     elif body.startswith("attendance add user "):
