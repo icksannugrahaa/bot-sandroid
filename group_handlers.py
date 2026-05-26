@@ -267,4 +267,4 @@ def check_id_cmd(send_text, chat_id, data, bot_lid: str = "", bot_phone: str = "
         logger.info("check_id_cmd: sent ID report for %s to admin %s", target_jid, admin_id)
 
     # Brief public ack — no sensitive data in group
-    send_text(chat_id, f"✅ ID info untuk @{raw_number} sudah dikirim ke super admin via PM.")
+    send_text(chat_id, f"✅ ID sudah dikirim ke super admin via PM.")
