@@ -229,3 +229,29 @@ def update_group_picture(group_id: str, base64_data: str, mimetype: str) -> dict
         logger.error("❌ Failed to update group picture %s: %s", group_id, exc)
         return {"success": False, "error": str(exc)}
 
+
+def get_profile_pic(contact_id: str) -> str | None:
+    """
+    Fetch the profile picture URL for a contact (phone @c.us or @lid).
+    Returns the URL string on success, or None if unavailable / API error.
+    This call is non-blocking-safe: all exceptions are caught internally.
+    """
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/contacts/{contact_id}/profile-picture"
+    headers = {"X-API-Key": OPENWA_API_KEY}
+    try:
+        resp = requests.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+        # OpenWA typically returns {"success": true, "data": {"eurl": "https://..."}}
+        pic_url = (
+            data.get("eurl")
+            or data.get("url")
+            or (data.get("data") or {}).get("eurl")
+            or (data.get("data") or {}).get("url")
+        )
+        return pic_url if pic_url else None
+    except Exception as exc:
+        logger.warning("⚠️ Could not fetch profile pic for %s: %s", contact_id, exc)
+        return None
+
+

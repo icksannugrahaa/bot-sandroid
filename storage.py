@@ -152,6 +152,16 @@ def init_db() -> None:
                 PRIMARY KEY (group_id, user_id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS bot_users (
+                jid           TEXT PRIMARY KEY,
+                lid           TEXT,
+                phone         TEXT,
+                pushname      TEXT,
+                profile_pic   TEXT,
+                registered_at TEXT NOT NULL
+            )
+        """)
         conn.commit()
         logger.info("📦 Database initialized at %s", DB_PATH)
     finally:
@@ -492,5 +502,75 @@ def unmute_user(group_id: str, user_id: str) -> None:
     try:
         conn.execute("DELETE FROM muted_users WHERE group_id = ? AND user_id = ?", (group_id, user_id))
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ──────────────────────────────────────────────────────────────
+# Bot User Registry
+# ──────────────────────────────────────────────────────────────
+
+def register_bot_user(
+    jid: str,
+    lid: str | None,
+    phone: str | None,
+    pushname: str | None,
+    profile_pic: str | None,
+) -> bool:
+    """
+    Register a new bot user.  Returns True if inserted (new user),
+    False if the JID already existed (INSERT OR IGNORE → no update).
+    """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cur = conn.execute(
+            """
+            INSERT OR IGNORE INTO bot_users
+                (jid, lid, phone, pushname, profile_pic, registered_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (jid, lid, phone, pushname, profile_pic, now)
+        )
+        conn.commit()
+        return cur.rowcount == 1
+    finally:
+        conn.close()
+
+
+def get_bot_user(jid: str) -> dict | None:
+    """Return the bot_user row for the given JID, or None."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            "SELECT * FROM bot_users WHERE jid = ?", (jid,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_bot_user_by_phone(phone: str) -> dict | None:
+    """Return the bot_user row matching a raw phone number, or None."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            "SELECT * FROM bot_users WHERE phone = ?", (phone,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_all_bot_users() -> list[dict]:
+    """Return all registered bot users."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute("SELECT * FROM bot_users ORDER BY registered_at").fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()
