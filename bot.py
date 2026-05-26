@@ -345,6 +345,51 @@ def cmd_start(chat_id: str, sender_id: str, pushname: str = "") -> None:
 
 
 # ──────────────────────────────────────────────────────────────
+# Registration helper
+# ──────────────────────────────────────────────────────────────
+
+def _is_registered(sender_id: str) -> bool:
+    """
+    Check if a sender has registered via the 'start' command.
+    Tries JID → phone → LID lookups so it works for both @c.us and @lid senders.
+    """
+    if storage.get_bot_user(sender_id):
+        return True
+    phone = sender_id.split("@")[0]
+    if storage.get_bot_user_by_phone(phone):
+        return True
+    if sender_id.endswith("@lid") and storage.get_bot_user_by_lid(sender_id):
+        return True
+    return False
+
+
+def cmd_list_bot_users(chat_id: str) -> None:
+    """Handle: list bot users  — shows all registered bot users."""
+    users = storage.get_all_bot_users()
+    if not users:
+        send_text(chat_id, "👥 Belum ada user yang terdaftar ke bot.")
+        return
+
+    lines = [f"👥 *Bot Users ({len(users)} terdaftar)*\n"]
+    for u in users:
+        name = u.get("pushname") or "-"
+        phone = u.get("phone") or u.get("jid", "").split("@")[0]
+        jid = u.get("jid", "-")
+        lid = u.get("lid")
+        pic = "✅" if u.get("profile_pic") else "❌"
+        registered = (u.get("registered_at") or "")[:10]  # YYYY-MM-DD
+
+        lines.append(f"👤 *{name}*")
+        lines.append(f"   • Nomor : `{phone}`")
+        lines.append(f"   • JID   : `{jid}`")
+        if lid:
+            lines.append(f"   • LID   : `{lid}`")
+        lines.append(f"   • Foto  : {pic}  | Daftar: `{registered}`")
+
+    send_text(chat_id, "\n".join(lines))
+
+
+# ──────────────────────────────────────────────────────────────
 # "Who made the bot?" detector
 # ──────────────────────────────────────────────────────────────
 _CREATOR_PATTERNS = [
@@ -490,6 +535,19 @@ def handle_message(data: dict) -> None:
         cmd_start(chat_id, sender_id, pushname_val)
         return
 
+    # ── Registration gate ─────────────────────────────────────────
+    # 'hello', 'ping', 'help' are free for all. Everything else
+    # requires the user to have sent 'start' first.
+    _FREE_COMMANDS = {"hello", "ping", "help"}
+    if body not in _FREE_COMMANDS and not _is_registered(sender_id):
+        send_text(
+            chat_id,
+            "⚠️ Kamu belum terdaftar ke bot ini.\n\n"
+            "Ketik *start* (via chat pribadi ke bot) untuk mendaftar terlebih dahulu, "
+            "kemudian kamu bisa menggunakan semua fitur yang tersedia."
+        )
+        return
+
     # ── Determine if sender is admin ────────────────────────
     user_is_admin = is_admin(chat_id) or is_admin(sender_id)
 
@@ -574,9 +632,9 @@ def handle_message(data: dict) -> None:
             lines.append("• *add location [nama] [lat,lng]* - Tambah lokasi baru\n")
 
         if rbac.has_permission(sender_id, "user_management"):
-            lines.append("👥 *User Management*")
-            lines.append("• *list users* - Lihat user terdaftar")
-            lines.append("• *add user <alias> <user> <pass> <imei>* - Tambah user")
+            lines.append("👥 *Attendance User Management*")
+            lines.append("• *list users* - Lihat attendance user terdaftar")
+            lines.append("• *add user <alias> <user> <pass> <imei>* - Tambah attendance user")
             lines.append("• *login [alias]* - Login paksa/refresh token")
             lines.append("• *register imei [alias]* - Daftarkan IMEI saat ini")
             lines.append("• *generate device id [alias]* - Generate IMEI baru\n")
@@ -592,7 +650,8 @@ def handle_message(data: dict) -> None:
             lines.append("• *rbac list users* — List users, status, and features")
             lines.append("• *rbac download* — Download template Excel RBAC")
             lines.append("• *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC")
-            lines.append("• *set role <nomor> <role>* — Ubah role pengguna\n")
+            lines.append("• *set role <nomor> <role>* — Ubah role pengguna")
+            lines.append("• *list bot users* — Lihat semua user yang terdaftar ke bot\n")
 
         if rbac.has_permission(sender_id, "group_management"):
             lines.append("👥 *Group Management*")
@@ -675,6 +734,9 @@ def handle_message(data: dict) -> None:
     elif body == "list users":
         if check_rbac("user_management"):
             ah.users_cmd(send_text, chat_id)
+    elif body == "list bot users":
+        if check_rbac("rbac"):
+            cmd_list_bot_users(chat_id)
 
     # ── Group & Admin routing ───────────────────────────────────
     elif body.startswith("group create "):

@@ -565,6 +565,20 @@ def get_bot_user_by_phone(phone: str) -> dict | None:
         conn.close()
 
 
+def get_bot_user_by_lid(lid: str) -> dict | None:
+    """Return the bot_user row matching a LID string, or None."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            "SELECT * FROM bot_users WHERE lid = ?", (lid,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+
 def get_all_bot_users() -> list[dict]:
     """Return all registered bot users."""
     conn = sqlite3.connect(DB_PATH)
