@@ -643,15 +643,15 @@ def handle_message(data: dict) -> None:
 
     # ── Command routing ──────────────────────────────────────
     if body.startswith("set ambri pass "):
-        if check_rbac("login_code"):
+        if check_rbac("set ambri pass"):
             cmd_set_password(chat_id, phone, raw_body)
 
     elif body.startswith("set ambri totp "):
-        if check_rbac("login_code"):
+        if check_rbac("set ambri totp"):
             cmd_set_totp(chat_id, phone, raw_body)
 
     elif body == "generate code":
-        if check_rbac("login_code"):
+        if check_rbac("generate code"):
             cmd_generate_code(chat_id, phone)
 
     elif body == "hello":
@@ -687,11 +687,11 @@ def handle_message(data: dict) -> None:
             lines.append("• _Kirim pesan biasa apa saja dan AI akan membalas!_\n")
 
         # ── 📅 Attendance ────────────────────────────────────────
-        has_attendance    = rbac.has_permission(sender_id, "attendance")
-        has_konfigurasi   = rbac.has_permission(sender_id, "konfigurasi")
-        has_lokasi        = rbac.has_permission(sender_id, "lokasi")
-        has_user_mgmt     = rbac.has_permission(sender_id, "user_management")
-        has_login_code    = rbac.has_permission(sender_id, "login_code")
+        has_attendance    = rbac.has_permission(sender_id, "checkin")
+        has_konfigurasi   = rbac.has_permission(sender_id, "set auto")
+        has_lokasi        = rbac.has_permission(sender_id, "list location")
+        has_user_mgmt     = rbac.has_permission(sender_id, "attendance list users")
+        has_login_code    = rbac.has_permission(sender_id, "set ambri pass")
 
         if any([has_attendance, has_konfigurasi, has_lokasi, has_user_mgmt, has_login_code]):
             lines.append("📅 *Attendance*")
@@ -732,7 +732,7 @@ def handle_message(data: dict) -> None:
             lines.append("")  # blank line after section
 
         # ── 🤖 Bot User Management ───────────────────────────────
-        if rbac.has_permission(sender_id, "rbac"):
+        if rbac.has_permission(sender_id, "bot users"):
             lines.append("🤖 *Bot User Management*")
             lines.append("• *bot users* — Lihat semua user yang terdaftar ke bot")
             lines.append("• *bot ban <nomor>* — Ban user (blokir akses ke bot)")
@@ -740,8 +740,8 @@ def handle_message(data: dict) -> None:
             lines.append("• *set role <nomor> <role>* — Ubah role pengguna\n")
 
         # ── 💬 WhatsApp General Feature ──────────────────────────
-        has_group_mgmt = rbac.has_permission(sender_id, "group_management")
-        has_admin_grp  = rbac.has_permission(sender_id, "admin_group")
+        has_group_mgmt = rbac.has_permission(sender_id, "group create")
+        has_admin_grp  = rbac.has_permission(sender_id, "admin add")
 
         if has_group_mgmt or has_admin_grp:
             lines.append("💬 *WhatsApp General Feature*")
@@ -766,8 +766,8 @@ def handle_message(data: dict) -> None:
             lines.append("")  # blank line after section
 
         # ── 🔑 User Access Feature ───────────────────────────────
-        has_rbac        = rbac.has_permission(sender_id, "rbac")
-        has_maintenance = rbac.has_permission(sender_id, "maintenance")
+        has_rbac        = rbac.has_permission(sender_id, "rbac list users")
+        has_maintenance = rbac.has_permission(sender_id, "maintenance on")
 
         if has_rbac or has_maintenance:
             lines.append("🔑 *User Access Feature*")
@@ -794,110 +794,110 @@ def handle_message(data: dict) -> None:
 
     # ── Attendance User Management routing ────────────────────────
     elif body.startswith("attendance add user "):
-        if check_rbac("user_management"):
+        if check_rbac("attendance add user"):
             ah.adduser_cmd(send_text, chat_id, raw_body)
     elif body.startswith("attendance login ") or body == "attendance login":
-        if check_rbac("user_management"):
+        if check_rbac("attendance login"):
             ah.login_cmd(send_text, chat_id, raw_body)
     elif body.startswith("attendance register imei "):
-        if check_rbac("user_management"):
+        if check_rbac("attendance register imei"):
             ah.register_imei_cmd(send_text, chat_id, raw_body)
     elif body.startswith("attendance generate device id"):
-        if check_rbac("user_management"):
+        if check_rbac("attendance generate device id"):
             ah.gendeviceid_cmd(send_text, chat_id, raw_body)
     elif body == "attendance list users":
-        if check_rbac("user_management"):
+        if check_rbac("attendance list users"):
             ah.users_cmd(send_text, chat_id)
     elif body in ("list bot users", "bot users"):
-        if check_rbac("rbac"):
+        if check_rbac("bot users"):
             cmd_list_bot_users(chat_id)
     elif body.startswith("bot ban "):
-        if check_rbac("rbac"):
+        if check_rbac("bot ban"):
             cmd_ban_user(chat_id, raw_body)
     elif body.startswith("bot unban "):
-        if check_rbac("rbac"):
+        if check_rbac("bot unban"):
             cmd_unban_user(chat_id, raw_body)
 
     # ── Attendance routing ────────────────────────────────────────
     elif body.startswith("checkin ") or body == "checkin":
-        if check_rbac("attendance"):
+        if check_rbac("checkin"):
             ah.masuk_cmd(send_text, chat_id, raw_body)
     elif body.startswith("checkout ") or body == "checkout":
-        if check_rbac("attendance"):
+        if check_rbac("checkout"):
             ah.pulang_cmd(send_text, chat_id, raw_body)
     elif body.startswith("list history"):
-        if check_rbac("attendance"):
+        if check_rbac("list history"):
             ah.history_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set auto"):
-        if check_rbac("attendance"):
+        if check_rbac("set auto"):
             ah.auto_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set checkin timerange"):
-        if check_rbac("konfigurasi"):
+        if check_rbac("set checkin timerange"):
             ah.set_checkin_timerange_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set checkout timerange"):
-        if check_rbac("konfigurasi"):
+        if check_rbac("set checkout timerange"):
             ah.set_checkout_timerange_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set notes "):
-        if check_rbac("konfigurasi"):
+        if check_rbac("set notes"):
             ah.setnotes_cmd(send_text, chat_id, raw_body)
     elif body.startswith("clear notes "):
-        if check_rbac("konfigurasi"):
+        if check_rbac("clear notes"):
             ah.clearnotes_cmd(send_text, chat_id, raw_body)
     elif body.startswith("set location "):
-        if check_rbac("lokasi"):
+        if check_rbac("set location"):
             ah.setlocation_cmd(send_text, chat_id, raw_body)
     elif body == "list location":
-        if check_rbac("lokasi"):
+        if check_rbac("list location"):
             ah.location_list_cmd(send_text, chat_id)
     elif body.startswith("add location "):
-        if check_rbac("lokasi"):
+        if check_rbac("add location"):
             ah.addlocation_cmd(send_text, chat_id, raw_body)
 
 
     # ── Group & Admin routing ───────────────────────────────────
     elif body.startswith("group create "):
-        if check_rbac("group_management"):
+        if check_rbac("group create"):
             gh.group_create_cmd(send_text, chat_id, raw_body)
     elif body.startswith("group update"):
-        if check_rbac("group_management"):
+        if check_rbac("group update"):
             gh.group_update_cmd(send_text, chat_id, raw_body, data)
     elif body == "group users":
-        if check_rbac("group_management"):
+        if check_rbac("group users"):
             gh.group_users_cmd(send_text, chat_id, data)
     elif body == "group leave":
-        if check_rbac("group_management"):
+        if check_rbac("group leave"):
             gh.group_leave_cmd(send_text, chat_id, data)
-            
+
     elif body.startswith("admin add "):
-        if check_rbac("admin_group"):
+        if check_rbac("admin add"):
             gh.admin_add_cmd(send_text, chat_id, raw_body, data)
     elif body.startswith("admin remove "):
-        if check_rbac("admin_group"):
+        if check_rbac("admin remove"):
             gh.admin_remove_cmd(send_text, chat_id, raw_body, data)
     elif body.startswith("user add "):
-        if check_rbac("admin_group"):
+        if check_rbac("user add"):
             gh.user_add_cmd(send_text, chat_id, raw_body, data)
     elif body.startswith("user kick "):
-        if check_rbac("admin_group"):
+        if check_rbac("user kick"):
             gh.user_kick_cmd(send_text, chat_id, raw_body, data)
     elif body.startswith("user mute "):
-        if check_rbac("admin_group"):
+        if check_rbac("user mute"):
             gh.user_mute_cmd(send_text, chat_id, raw_body, data)
     elif body.startswith("user unmute "):
-        if check_rbac("admin_group"):
+        if check_rbac("user unmute"):
             gh.user_unmute_cmd(send_text, chat_id, raw_body, data)
     elif body.startswith("check id"):
-        if check_rbac("admin_group"):
+        if check_rbac("check id"):
             gh.check_id_cmd(send_text, chat_id, data, bot_lid=BOT_LID, bot_phone=BOT_PHONE)
 
     # ── RBAC routing ─────────────────────────────────────────
     elif body == "rbac list users":
-        if check_rbac("rbac"):
+        if check_rbac("rbac list users"):
             msg = rbac.list_users_with_roles()
             send_text(chat_id, msg)
-            
+
     elif body == "rbac download":
-        if check_rbac("rbac"):
+        if check_rbac("rbac download"):
             send_text(chat_id, "⏳ Generating RBAC Excel template...")
             b64_data = rbac.generate_template_b64()
             whatsapp.send_file(
@@ -907,9 +907,9 @@ def handle_message(data: dict) -> None:
                 filename="rbac_template.xlsx",
                 caption="✅ Ini adalah konfigurasi RBAC saat ini. Edit dan kirim kembali file ini dengan caption `rbac upload`."
             )
-            
+
     elif body == "rbac upload":
-        if check_rbac("rbac"):
+        if check_rbac("rbac upload"):
             media = data.get("media")
             if media and "data" in media:
                 base64_data = media["data"]
@@ -918,9 +918,9 @@ def handle_message(data: dict) -> None:
                 send_text(chat_id, msg)
             else:
                 send_text(chat_id, "❌ Tidak ada file document/excel yang dilampirkan. Pastikan Anda melampirkan file Excel saat mengetik `rbac upload`.")
-                
+
     elif body.startswith("set role "):
-        if check_rbac("rbac"):
+        if check_rbac("set role"):
             # format: set role 628123 admin
             parts = body.split(maxsplit=3)
             if len(parts) >= 4:

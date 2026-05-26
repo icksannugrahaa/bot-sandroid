@@ -7,45 +7,128 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Keys that existed in the OLD coarse-grained RBAC (used for migration detection)
+_OLD_RBAC_KEYS = {
+    "attendance", "konfigurasi", "lokasi", "user_management",
+    "login_code", "rbac", "ai", "maintenance", "group_management", "admin_group"
+}
+
+# ── Per-command feature keys ──────────────────────────────────────────────
 DEFAULT_FEATURES = [
-    "spam",
-    "attendance",
-    "konfigurasi",
-    "lokasi",
-    "user_management",
-    "login_code",
-    "rbac",
-    "ai",
-    "maintenance",
-    "group_management",
-    "admin_group"
+    # Attendance (Absensi)
+    "checkin", "checkout", "list history",
+    # Attendance Configuration
+    "set auto", "set checkin timerange", "set checkout timerange",
+    "set notes", "clear notes", "set location", "list location", "add location",
+    "attendance list users", "attendance add user", "attendance login",
+    "attendance register imei", "attendance generate device id",
+    "set ambri pass", "set ambri totp", "generate code",
+    # Bot User Management
+    "bot users", "bot ban", "bot unban", "set role",
+    # Group Management
+    "group create", "group update", "group users", "group leave",
+    # Group Admin Management
+    "admin add", "admin remove", "user add", "user kick",
+    "user mute", "user unmute", "check id",
+    # RBAC Management
+    "rbac list users", "rbac download", "rbac upload",
+    # Maintenance
+    "maintenance on", "maintenance off", "maintenance status",
+    # WhatsApp General
+    "spam", "ai", "start", "hello", "ping", "help",
 ]
 
 DEFAULT_ROLES = ["super admin", "admin", "user"]
 
+_SA = {"super admin": True,  "admin": False, "user": False}
+_AA = {"super admin": True,  "admin": True,  "user": False}
+_ALL = {"super admin": True, "admin": True,  "user": True}
+
 DEFAULT_MATRIX = {
-    "spam": {"super admin": True, "admin": True, "user": False},
-    "attendance": {"super admin": True, "admin": True, "user": True},
-    "konfigurasi": {"super admin": True, "admin": True, "user": True},
-    "lokasi": {"super admin": True, "admin": True, "user": True},
-    "user_management": {"super admin": True, "admin": True, "user": False},
-    "login_code": {"super admin": True, "admin": True, "user": True},
-    "rbac": {"super admin": True, "admin": False, "user": False},
-    "ai": {"super admin": True, "admin": True, "user": True},
-    "maintenance": {"super admin": True, "admin": False, "user": False},
-    "group_management": {"super admin": True, "admin": True, "user": False},
-    "admin_group": {"super admin": True, "admin": True, "user": False},
+    # ── Attendance (Absensi) ──────────────────────────────────────────────
+    "checkin":                        _ALL.copy(),
+    "checkout":                       _ALL.copy(),
+    "list history":                   _ALL.copy(),
+    # ── Attendance Configuration ──────────────────────────────────────────
+    "set auto":                       _ALL.copy(),
+    "set checkin timerange":          _ALL.copy(),
+    "set checkout timerange":         _ALL.copy(),
+    "set notes":                      _ALL.copy(),
+    "clear notes":                    _ALL.copy(),
+    "set location":                   _AA.copy(),
+    "list location":                  _ALL.copy(),
+    "add location":                   _AA.copy(),
+    "attendance list users":          _ALL.copy(),
+    "attendance add user":            _ALL.copy(),
+    "attendance login":               _ALL.copy(),
+    "attendance register imei":       _ALL.copy(),
+    "attendance generate device id":  _ALL.copy(),
+    "set ambri pass":                 _ALL.copy(),
+    "set ambri totp":                 _ALL.copy(),
+    "generate code":                  _ALL.copy(),
+    # ── Bot User Management ───────────────────────────────────────────────
+    "bot users":                      _SA.copy(),
+    "bot ban":                        _SA.copy(),
+    "bot unban":                      _SA.copy(),
+    "set role":                       _SA.copy(),
+    # ── Group Management ──────────────────────────────────────────────────
+    "group create":                   _AA.copy(),
+    "group update":                   _AA.copy(),
+    "group users":                    _AA.copy(),
+    "group leave":                    _AA.copy(),
+    # ── Group Admin Management ────────────────────────────────────────────
+    "admin add":                      _AA.copy(),
+    "admin remove":                   _AA.copy(),
+    "user add":                       _AA.copy(),
+    "user kick":                      _AA.copy(),
+    "user mute":                      _AA.copy(),
+    "user unmute":                    _AA.copy(),
+    "check id":                       _AA.copy(),
+    # ── RBAC Management ───────────────────────────────────────────────────
+    "rbac list users":                _SA.copy(),
+    "rbac download":                  _SA.copy(),
+    "rbac upload":                    _SA.copy(),
+    # ── Maintenance ───────────────────────────────────────────────────────
+    "maintenance on":                 _SA.copy(),
+    "maintenance off":                _SA.copy(),
+    "maintenance status":             _SA.copy(),
+    # ── WhatsApp General ──────────────────────────────────────────────────
+    "spam":                           _SA.copy(),
+    "ai":                             _SA.copy(),
+    "start":                          _ALL.copy(),
+    "hello":                          _ALL.copy(),
+    "ping":                           _ALL.copy(),
+    "help":                           _ALL.copy(),
 }
 
+
 def init_default_rbac():
-    """Initializes the RBAC table if it's empty."""
+    """
+    Initialize RBAC permissions.
+    - Empty DB  → insert all new defaults.
+    - Old coarse keys detected → auto-migrate to new granular defaults.
+    - Already using new keys → no action.
+    """
     perms = storage.get_all_rbac_permissions()
-    if not perms:
+    existing = {p["feature"] for p in perms}
+
+    if existing & _OLD_RBAC_KEYS:
+        # ── Migration from old coarse-grained keys ───────────────────────
+        logger.info("🔄 Migrating RBAC to per-command keys...")
+        new_perms = [
+            {"feature": feat, "role": role, "is_active": active}
+            for feat, roles in DEFAULT_MATRIX.items()
+            for role, active in roles.items()
+        ]
+        storage.set_rbac_permissions(new_perms)
+        logger.info("✅ RBAC migrated: %d permissions set", len(new_perms))
+    elif not perms:
         logger.info("Initializing default RBAC permissions...")
-        new_perms = []
-        for feature, roles in DEFAULT_MATRIX.items():
-            for role, active in roles.items():
-                new_perms.append({"feature": feature, "role": role, "is_active": active})
+        new_perms = [
+            {"feature": feat, "role": role, "is_active": active}
+            for feat, roles in DEFAULT_MATRIX.items()
+            for role, active in roles.items()
+        ]
         storage.set_rbac_permissions(new_perms)
 
 def get_user_role(chat_id: str) -> str:
@@ -83,14 +166,38 @@ def has_permission(chat_id: str, feature: str) -> bool:
     return False
 
 
-# ── Feature group definitions (canonical order) ──────────────────────────
+# ── Feature group definitions (canonical order for Excel template) ──────
 _FEATURE_GROUPS = [
-    ("🧠 AI Chat",             ["ai"]),
-    ("📅 Attendance",          ["attendance", "konfigurasi", "lokasi",
-                                  "user_management", "login_code"]),
-    ("🤖 Bot User Management", ["rbac"]),
-    ("💬 WhatsApp General",    ["spam", "group_management", "admin_group"]),
-    ("🔑 User Access Feature", ["maintenance"]),
+    ("📅 Attendance", [
+        "checkin", "checkout", "list history",
+    ]),
+    ("📅 Attendance Configuration", [
+        "set auto", "set checkin timerange", "set checkout timerange",
+        "set notes", "clear notes",
+        "set location", "list location", "add location",
+        "attendance list users", "attendance add user", "attendance login",
+        "attendance register imei", "attendance generate device id",
+        "set ambri pass", "set ambri totp", "generate code",
+    ]),
+    ("🤖 Bot User Management", [
+        "bot users", "bot ban", "bot unban", "set role",
+    ]),
+    ("👥 Group Management", [
+        "group create", "group update", "group users", "group leave",
+    ]),
+    ("🛡️ Group Admin Management", [
+        "admin add", "admin remove", "user add", "user kick",
+        "user mute", "user unmute", "check id",
+    ]),
+    ("🔑 RBAC Management", [
+        "rbac list users", "rbac download", "rbac upload",
+    ]),
+    ("🔧 Maintenance", [
+        "maintenance on", "maintenance off", "maintenance status",
+    ]),
+    ("💬 WhatsApp General", [
+        "spam", "ai", "start", "hello", "ping", "help",
+    ]),
 ]
 
 # Friendly descriptions shown in the "description" column
@@ -342,17 +449,52 @@ def list_users_with_roles() -> str:
 
     # Friendly label map: internal key → display name (grouped)
     FEATURE_LABELS = {
-        "ai":               "🧠 AI Chat",
-        "attendance":       "📅 Attendance (Absensi)",
-        "konfigurasi":      "📅 Attendance (Konfigurasi)",
-        "lokasi":           "📅 Attendance (Lokasi)",
-        "user_management":  "📅 Attendance (User Mgmt)",
-        "login_code":       "📅 Attendance (Login Code)",
-        "spam":             "💬 Spam",
-        "rbac":             "🤖 Bot User Management",
-        "group_management": "💬 WhatsApp (Group Mgmt)",
-        "admin_group":      "💬 WhatsApp (Admin Group)",
-        "maintenance":      "🔑 Maintenance",
+        "checkin":                       "📅 Attendance — checkin",
+        "checkout":                      "📅 Attendance — checkout",
+        "list history":                  "📅 Attendance — list history",
+        "set auto":                      "📅 Config — set auto",
+        "set checkin timerange":         "📅 Config — set checkin timerange",
+        "set checkout timerange":        "📅 Config — set checkout timerange",
+        "set notes":                     "📅 Config — set notes",
+        "clear notes":                   "📅 Config — clear notes",
+        "set location":                  "📅 Config — set location",
+        "list location":                 "📅 Config — list location",
+        "add location":                  "📅 Config — add location",
+        "attendance list users":         "📅 Config — attendance list users",
+        "attendance add user":           "📅 Config — attendance add user",
+        "attendance login":              "📅 Config — attendance login",
+        "attendance register imei":      "📅 Config — attendance register imei",
+        "attendance generate device id": "📅 Config — generate device id",
+        "set ambri pass":                "📅 Config — set ambri pass",
+        "set ambri totp":                "📅 Config — set ambri totp",
+        "generate code":                 "📅 Config — generate code",
+        "bot users":                     "🤖 Bot Mgmt — bot users",
+        "bot ban":                       "🤖 Bot Mgmt — bot ban",
+        "bot unban":                     "🤖 Bot Mgmt — bot unban",
+        "set role":                      "🤖 Bot Mgmt — set role",
+        "group create":                  "👥 Group — group create",
+        "group update":                  "👥 Group — group update",
+        "group users":                   "👥 Group — group users",
+        "group leave":                   "👥 Group — group leave",
+        "admin add":                     "🛡️ Admin — admin add",
+        "admin remove":                  "🛡️ Admin — admin remove",
+        "user add":                      "🛡️ Admin — user add",
+        "user kick":                     "🛡️ Admin — user kick",
+        "user mute":                     "🛡️ Admin — user mute",
+        "user unmute":                   "🛡️ Admin — user unmute",
+        "check id":                      "🛡️ Admin — check id",
+        "rbac list users":               "🔑 RBAC — rbac list users",
+        "rbac download":                 "🔑 RBAC — rbac download",
+        "rbac upload":                   "🔑 RBAC — rbac upload",
+        "maintenance on":                "🔧 Maintenance — on",
+        "maintenance off":               "🔧 Maintenance — off",
+        "maintenance status":            "🔧 Maintenance — status",
+        "spam":                          "💬 General — spam",
+        "ai":                            "💬 General — AI Chat",
+        "start":                         "💬 General — start",
+        "hello":                         "💬 General — hello",
+        "ping":                          "💬 General — ping",
+        "help":                          "💬 General — help",
     }
 
     role_features = {}
