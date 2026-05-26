@@ -159,9 +159,16 @@ def init_db() -> None:
                 phone         TEXT,
                 pushname      TEXT,
                 profile_pic   TEXT,
-                registered_at TEXT NOT NULL
+                registered_at TEXT NOT NULL,
+                is_banned     INTEGER NOT NULL DEFAULT 0
             )
         """)
+        # ── Migration: add is_banned to existing DBs that don't have the column yet ──
+        try:
+            conn.execute("ALTER TABLE bot_users ADD COLUMN is_banned INTEGER NOT NULL DEFAULT 0")
+            logger.info("🔧 Migrated bot_users: added is_banned column")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
         conn.commit()
         logger.info("📦 Database initialized at %s", DB_PATH)
     finally:
@@ -588,3 +595,85 @@ def get_all_bot_users() -> list[dict]:
         return [dict(r) for r in rows]
     finally:
         conn.close()
+
+
+# ──────────────────────────────────────────────────────────────
+# Bot User Ban Management
+# ──────────────────────────────────────────────────────────────
+
+def _find_bot_user_by_any(identifier: str) -> dict | None:
+    """
+    Internal helper: find a bot_user row by JID, phone number, or LID.
+    'identifier' can be a raw phone string, a @c.us JID, or a @lid JID.
+    """
+    import re as _re
+    # Normalise to a clean phone number (digits only)
+    raw = identifier.split("@")[0] if "@" in identifier else identifier
+    phone = _re.sub(r'\D', '', raw)
+    if phone.startswith("08"):
+        phone = "628" + phone[2:]
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        # 1. Try exact JID / LID match first
+        row = conn.execute(
+            "SELECT * FROM bot_users WHERE jid = ? OR lid = ?",
+            (identifier, identifier)
+        ).fetchone()
+        if row:
+            return dict(row)
+        # 2. Fall back to phone number
+        if phone:
+            row = conn.execute(
+                "SELECT * FROM bot_users WHERE phone = ?", (phone,)
+            ).fetchone()
+            return dict(row) if row else None
+        return None
+    finally:
+        conn.close()
+
+
+def ban_bot_user(identifier: str) -> bool:
+    """
+    Ban a registered bot user by JID, LID, or phone number.
+    Returns True if a row was updated, False if the user was not found.
+    """
+    user = _find_bot_user_by_any(identifier)
+    if not user:
+        return False
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("UPDATE bot_users SET is_banned = 1 WHERE jid = ?", (user["jid"],))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def unban_bot_user(identifier: str) -> bool:
+    """
+    Unban a registered bot user by JID, LID, or phone number.
+    Returns True if a row was updated, False if the user was not found.
+    """
+    user = _find_bot_user_by_any(identifier)
+    if not user:
+        return False
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("UPDATE bot_users SET is_banned = 0 WHERE jid = ?", (user["jid"],))
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+def is_bot_user_banned(sender_id: str) -> bool:
+    """
+    Returns True if the sender is a registered AND banned bot user.
+    Tries JID → phone → LID so it works for all sender formats.
+    """
+    user = _find_bot_user_by_any(sender_id)
+    if not user:
+        return False
+    return bool(user.get("is_banned"))

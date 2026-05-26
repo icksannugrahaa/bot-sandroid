@@ -415,9 +415,10 @@ def cmd_list_bot_users(chat_id: str) -> None:
         jid = u.get("jid", "-")
         lid = u.get("lid")
         pic = "✅" if u.get("profile_pic") else "❌"
+        banned = "🚫 *BANNED*" if u.get("is_banned") else "🟢 Aktif"
         registered = (u.get("registered_at") or "")[:10]  # YYYY-MM-DD
 
-        lines.append(f"👤 *{name}*")
+        lines.append(f"👤 *{name}* | {banned}")
         lines.append(f"   • Nomor : `{phone}`")
         lines.append(f"   • JID   : `{jid}`")
         if lid:
@@ -425,6 +426,32 @@ def cmd_list_bot_users(chat_id: str) -> None:
         lines.append(f"   • Foto  : {pic}  | Daftar: `{registered}`")
 
     send_text(chat_id, "\n".join(lines))
+
+
+def cmd_ban_user(chat_id: str, raw_body: str) -> None:
+    """Handle: bot ban <nomor/jid>  — ban a registered bot user."""
+    parts = raw_body.split(maxsplit=2)
+    if len(parts) < 3:
+        send_text(chat_id, "⚠️ Usage: *bot ban <nomor>*\nContoh: *bot ban 628123456789*")
+        return
+    identifier = parts[2].strip()
+    if storage.ban_bot_user(identifier):
+        send_text(chat_id, f"🚫 User `{identifier}` telah di-*BAN*. Mereka tidak bisa menggunakan bot lagi.")
+    else:
+        send_text(chat_id, f"❌ User `{identifier}` tidak ditemukan di database bot users.\nPastikan nomor sudah pernah mengirim *start* ke bot.")
+
+
+def cmd_unban_user(chat_id: str, raw_body: str) -> None:
+    """Handle: bot unban <nomor/jid>  — lift ban from a registered bot user."""
+    parts = raw_body.split(maxsplit=2)
+    if len(parts) < 3:
+        send_text(chat_id, "⚠️ Usage: *bot unban <nomor>*\nContoh: *bot unban 628123456789*")
+        return
+    identifier = parts[2].strip()
+    if storage.unban_bot_user(identifier):
+        send_text(chat_id, f"✅ Ban untuk user `{identifier}` telah *dicabut*. Mereka bisa menggunakan bot kembali.")
+    else:
+        send_text(chat_id, f"❌ User `{identifier}` tidak ditemukan di database bot users.")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -535,6 +562,12 @@ def handle_message(data: dict) -> None:
             raw_body = re.sub(r"@\S+", "", raw_body, count=1).strip()
 
     body = raw_body.lower()
+
+    # ── Ban gate ──────────────────────────────────────────────────
+    # This runs BEFORE everything — banned users get no other response.
+    if storage.is_bot_user_banned(sender_id):
+        send_text(chat_id, "🚫 Kamu telah dibanned dari bot ini. Hubungi admin jika ini adalah kesalahan.")
+        return
 
     # ── Quoted Message Target Injection ────────────────────────
     # If the user replies to a message with a command like "user mute",
@@ -684,12 +717,17 @@ def handle_message(data: dict) -> None:
             lines.append("• *generate code* — Get your login code\n")
 
         if rbac.has_permission(sender_id, "rbac"):
+            lines.append("🤖 *Bot User Management*")
+            lines.append("• *bot users* — Lihat semua user yang terdaftar ke bot")
+            lines.append("• *bot ban <nomor>* — Ban user (blokir akses ke bot)")
+            lines.append("• *bot unban <nomor>* — Cabut ban user")
+            lines.append("• *set role <nomor> <role>* — Ubah role pengguna\n")
+
+        if rbac.has_permission(sender_id, "rbac"):
             lines.append("🛡️ *RBAC (Access Control)*")
             lines.append("• *rbac list users* — List users, status, and features")
             lines.append("• *rbac download* — Download template Excel RBAC")
-            lines.append("• *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC")
-            lines.append("• *set role <nomor> <role>* — Ubah role pengguna")
-            lines.append("• *list bot users* — Lihat semua user yang terdaftar ke bot\n")
+            lines.append("• *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC\n")
 
         if rbac.has_permission(sender_id, "group_management"):
             lines.append("👥 *Group Management*")
@@ -739,9 +777,15 @@ def handle_message(data: dict) -> None:
     elif body == "attendance list users":
         if check_rbac("user_management"):
             ah.users_cmd(send_text, chat_id)
-    elif body == "list bot users":
+    elif body in ("list bot users", "bot users"):
         if check_rbac("rbac"):
             cmd_list_bot_users(chat_id)
+    elif body.startswith("bot ban "):
+        if check_rbac("rbac"):
+            cmd_ban_user(chat_id, raw_body)
+    elif body.startswith("bot unban "):
+        if check_rbac("rbac"):
+            cmd_unban_user(chat_id, raw_body)
 
     # ── Attendance routing ────────────────────────────────────────
     elif body.startswith("checkin ") or body == "checkin":
