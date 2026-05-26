@@ -671,11 +671,11 @@ def handle_message(data: dict) -> None:
 
         if rbac.has_permission(sender_id, "user_management"):
             lines.append("👥 *Attendance User Management*")
-            lines.append("• *list users* - Lihat attendance user terdaftar")
-            lines.append("• *add user <alias> <user> <pass> <imei>* - Tambah attendance user")
-            lines.append("• *login [alias]* - Login paksa/refresh token")
-            lines.append("• *register imei [alias]* - Daftarkan IMEI saat ini")
-            lines.append("• *generate device id [alias]* - Generate IMEI baru\n")
+            lines.append("• *attendance list users* - Lihat attendance user terdaftar")
+            lines.append("• *attendance add user <alias> <user> <pass> <imei>* - Tambah attendance user")
+            lines.append("• *attendance login [alias]* - Login paksa/refresh token")
+            lines.append("• *attendance register imei [alias]* - Daftarkan IMEI saat ini")
+            lines.append("• *attendance generate device id [alias]* - Generate IMEI baru\n")
 
         if rbac.has_permission(sender_id, "login_code"):
             lines.append("🔐 *Login Code*")
@@ -723,19 +723,27 @@ def handle_message(data: dict) -> None:
         help_text = "\n".join(lines)
         send_text(chat_id, help_text)
 
-    # ── Attendance routing ───────────────────────────────────
-    elif body.startswith("add user "):
+    # ── Attendance User Management routing ────────────────────────
+    elif body.startswith("attendance add user "):
         if check_rbac("user_management"):
             ah.adduser_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("login "):
+    elif body.startswith("attendance login ") or body == "attendance login":
         if check_rbac("user_management"):
             ah.login_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("register imei "):
+    elif body.startswith("attendance register imei "):
         if check_rbac("user_management"):
             ah.register_imei_cmd(send_text, chat_id, raw_body)
-    elif body.startswith("generate device id"):
+    elif body.startswith("attendance generate device id"):
         if check_rbac("user_management"):
             ah.gendeviceid_cmd(send_text, chat_id, raw_body)
+    elif body == "attendance list users":
+        if check_rbac("user_management"):
+            ah.users_cmd(send_text, chat_id)
+    elif body == "list bot users":
+        if check_rbac("rbac"):
+            cmd_list_bot_users(chat_id)
+
+    # ── Attendance routing ────────────────────────────────────────
     elif body.startswith("checkin ") or body == "checkin":
         if check_rbac("attendance"):
             ah.masuk_cmd(send_text, chat_id, raw_body)
@@ -769,12 +777,7 @@ def handle_message(data: dict) -> None:
     elif body.startswith("add location "):
         if check_rbac("lokasi"):
             ah.addlocation_cmd(send_text, chat_id, raw_body)
-    elif body == "list users":
-        if check_rbac("user_management"):
-            ah.users_cmd(send_text, chat_id)
-    elif body == "list bot users":
-        if check_rbac("rbac"):
-            cmd_list_bot_users(chat_id)
+
 
     # ── Group & Admin routing ───────────────────────────────────
     elif body.startswith("group create "):

@@ -51,7 +51,7 @@ def users_cmd(send_text_fn, chat_id):
 
 def adduser_cmd(send_text_fn, chat_id, text):
     try:
-        content = text[9:].strip() # len("add user ")
+        content = text[20:].strip() # len("attendance add user ")
         parts = content.split()
         if len(parts) == 4:
             alias, username, password, imei = parts
@@ -60,11 +60,11 @@ def adduser_cmd(send_text_fn, chat_id, text):
         else:
             raise ValueError()
     except ValueError:
-        send_text_fn(chat_id, "Format:\nadd user <alias> <user> <pass> <imei>")
+        send_text_fn(chat_id, "Format:\nattendance add user <alias> <user> <pass> <imei>")
 
 def login_cmd(send_text_fn, chat_id, text):
     try:
-        alias_arg = text[6:].strip() or None
+        alias_arg = text[17:].strip() or None  # len("attendance login ")
         alias = get_authorized_alias(chat_id, alias_arg)
         user = get_user(alias)
         if not user:
@@ -83,7 +83,7 @@ def login_cmd(send_text_fn, chat_id, text):
 
 def register_imei_cmd(send_text_fn, chat_id, text):
     try:
-        alias_arg = text[14:].strip() or None
+        alias_arg = text[25:].strip() or None  # len("attendance register imei ")
         alias = get_authorized_alias(chat_id, alias_arg)
         user = get_user(alias)
         if not user:
@@ -103,12 +103,13 @@ def register_imei_cmd(send_text_fn, chat_id, text):
 def gendeviceid_cmd(send_text_fn, chat_id, text):
     try:
         parts = text.split()
+        # "attendance generate device id" = 4 words, alias is parts[4] if present
         new_imei = device_utils.generate_device_id()
 
-        if len(parts) > 1:
-            alias = get_authorized_alias(chat_id, parts[1])
+        if len(parts) > 4:
+            alias = get_authorized_alias(chat_id, parts[4])
             if set_imei(alias, new_imei):
-                send_text_fn(chat_id, f"✅ Device ID (IMEI) baru untuk `{alias}` berhasil dibuat dan disimpan.\n\nSilahkan jalankan `register imei {alias}`.")
+                send_text_fn(chat_id, f"✅ Device ID (IMEI) baru untuk `{alias}` berhasil dibuat dan disimpan.\n\nSilahkan jalankan `attendance register imei {alias}`.")
                 send_text_fn(chat_id, new_imei)
             else:
                 send_text_fn(chat_id, "❌ User tidak ditemukan.")
