@@ -206,56 +206,76 @@ def cmd_spam(chat_id: str, raw_body: str, sender_id: str, pushname: str = "") ->
     if len(parts) < 2:
         send_text(chat_id, "⚠️ Usage: *spam <nomor_wa> [jumlah]*\nContoh: *spam 628123456789 3*\n_(Maksimal 5 untuk mencegah ban)_")
         return
-        
+
     target = parts[1].strip()
     import re
     target = re.sub(r'\D', '', target)
     if not target:
         return send_text(chat_id, "⚠️ Nomor tidak valid.")
-        
+
     target_chat_id = f"{target}@c.us"
-    
+
     count = 3
     if len(parts) >= 3 and parts[2].isdigit():
         count = int(parts[2])
-        
+
     # LIMIT MAX SPAM
     MAX_SPAM = 5
     if count > MAX_SPAM:
         send_text(chat_id, f"⚠️ Jumlah terlalu banyak! Dibatasi maksimal {MAX_SPAM} pesan untuk mencegah bot dibanned.")
         count = MAX_SPAM
-        
+
     if count < 1:
         count = 1
 
-    # Coba cari username user di database attendance
-    import storage
-    users = storage.get_attendance_users()
-    display_name = ""
-    for alias, u in users.items():
-        if u.get("owner_chat_id") == sender_id:
-            display_name = u.get("username")
-            break
+    # ── Resolve caller display from bot_users registry (primary source) ──
+    caller_display = None
 
-    # Format the caller's name/link safely
-    if display_name:
-        if display_name.isdigit():
-            clean_num = display_name
-            if clean_num.startswith("08"):
-                clean_num = "628" + clean_num[2:]
-            caller_display = f"wa.me/{clean_num}"
+    # Try @c.us JID first, then @lid JID
+    bot_user = storage.get_bot_user(sender_id)
+    if not bot_user and not sender_id.endswith("@lid"):
+        # Also try by raw phone number as fallback
+        raw_phone = sender_id.split("@")[0]
+        bot_user = storage.get_bot_user_by_phone(raw_phone)
+
+    if bot_user:
+        name = bot_user.get("pushname") or ""
+        phone_num = bot_user.get("phone") or ""
+        parts_display = []
+        if name:
+            parts_display.append(f"*{name}*")
+        if phone_num:
+            parts_display.append(f"wa.me/{phone_num}")
+        if parts_display:
+            caller_display = " ".join(parts_display)
+
+    # Fallback: old logic (attendance username / pushname / phone)
+    if not caller_display:
+        import storage as _st
+        att_users = _st.get_attendance_users()
+        display_name = ""
+        for alias, u in att_users.items():
+            if u.get("owner_chat_id") == sender_id:
+                display_name = u.get("username", "")
+                break
+
+        if display_name:
+            if display_name.isdigit():
+                clean_num = display_name
+                if clean_num.startswith("08"):
+                    clean_num = "628" + clean_num[2:]
+                caller_display = f"wa.me/{clean_num}"
+            else:
+                caller_display = f"*{display_name}*"
+        elif pushname:
+            caller_display = f"*{pushname}*"
+        elif "@lid" in sender_id:
+            caller_display = "seseorang"
         else:
-            caller_display = f"*{display_name}*"
-    elif pushname:
-        caller_display = f"*{pushname}*"
-    elif "@lid" in sender_id:
-        caller_display = "seseorang"
-    else:
-        # It's a normal @c.us phone number
-        caller_display = f"wa.me/{sender_id.split('@')[0]}"
-    
+            caller_display = f"wa.me/{sender_id.split('@')[0]}"
+
     send_text(chat_id, f"⏳ Sedang mengirim {count} pesan ke {target}...")
-    
+
     def _spam_worker():
         import time
         for i in range(count):
@@ -264,6 +284,64 @@ def cmd_spam(chat_id: str, raw_body: str, sender_id: str, pushname: str = "") ->
         send_text(chat_id, f"✅ Selesai mengirim {count} pesan ke {target}")
 
     threading.Thread(target=_spam_worker).start()
+
+
+def cmd_start(chat_id: str, sender_id: str, pushname: str = "") -> None:
+    """
+    Handle: start  (DM only)
+
+    Registers the sender in the bot_users table.
+    - Already registered → friendly reply, no DB change.
+    - New user → fetch profile pic, save to DB, send welcome card.
+    """
+    # Try to resolve LID to @c.us so we store the stable phone-based JID
+    jid = sender_id
+    if sender_id.endswith("@lid"):
+        from group_handlers import resolve_lid_to_cus
+        jid = resolve_lid_to_cus(sender_id)
+
+    # Already registered?
+    existing = storage.get_bot_user(jid)
+    if existing:
+        name = existing.get("pushname") or "kamu"
+        send_text(chat_id, f"👋 Halo *{name}*! Kamu sudah terdaftar sebelumnya.")
+        return
+
+    # Extract phone number from JID
+    phone = jid.split("@")[0] if "@" in jid else jid
+
+    # Detect LID
+    lid = sender_id if sender_id.endswith("@lid") else None
+
+    # Fetch profile picture (non-blocking — returns None on failure)
+    profile_pic = whatsapp.get_profile_pic(jid)
+
+    # Save to DB
+    is_new = storage.register_bot_user(
+        jid=jid,
+        lid=lid,
+        phone=phone,
+        pushname=pushname or None,
+        profile_pic=profile_pic,
+    )
+
+    if is_new:
+        logger.info("📋 New bot user registered: jid=%s, phone=%s, name=%s", jid, phone, pushname)
+        lines = ["🎉 *Selamat Datang di Bot!*\n"]
+        lines.append("✅ Kamu sudah terdaftar. Berikut data yang disimpan:\n")
+        if pushname:
+            lines.append(f"👤 Nama   : *{pushname}*")
+        lines.append(f"📱 Nomor  : `{phone}`")
+        lines.append(f"🔗 JID    : `{jid}`")
+        if lid:
+            lines.append(f"🔒 LID    : `{lid}`")
+        if profile_pic:
+            lines.append(f"🖼️ Foto   : {profile_pic}")
+        lines.append("\nKetik *help* untuk melihat daftar perintah yang tersedia.")
+        send_text(chat_id, "\n".join(lines))
+    else:
+        # Race condition — another thread registered in between
+        send_text(chat_id, "👋 Kamu sudah terdaftar sebelumnya.")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -405,6 +483,13 @@ def handle_message(data: dict) -> None:
         send_text(chat_id, f"❌ Anda tidak memiliki akses ke fitur: *{feature}*")
         return False
 
+    # ── 'start' command — DM only, intercept BEFORE maintenance block ──
+    # So new users can always register even when maintenance is active.
+    if body == "start" and not is_group:
+        pushname_val = data.get("pushname") or data.get("notifyName") or ""
+        cmd_start(chat_id, sender_id, pushname_val)
+        return
+
     # ── Determine if sender is admin ────────────────────────
     user_is_admin = is_admin(chat_id) or is_admin(sender_id)
 
@@ -448,7 +533,7 @@ def handle_message(data: dict) -> None:
         
     elif body == "my id":
         send_text(chat_id, f"🆔 ID Anda adalah: *{sender_id}*\n\n_(Kirim ID ini ke admin jika Anda membutuhkan akses role)_")
-        
+
     elif body.startswith("spam "):
         if check_rbac("spam"):
             pushname = data.get("pushname") or data.get("notifyName") or ""
@@ -457,6 +542,7 @@ def handle_message(data: dict) -> None:
     elif body == "help":
         lines = ["🤖 *Bot Commands*\n"]
         lines.append("📋 *General*")
+        lines.append("• *start* — Daftar ke bot (simpan data kamu)")
         lines.append("• *hello* — Say hello")
         lines.append("• *ping* — Check if bot is alive")
         lines.append("• *my id* — Check your exact ID (for admin setup)")
