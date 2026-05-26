@@ -522,7 +522,8 @@ def handle_message(data: dict) -> None:
             lines.append("• *user add <nomor>* — Tambah member")
             lines.append("• *user kick <nomor>* — Keluarkan member")
             lines.append("• *user mute <nomor>* — Bisu user (pesan otomatis dihapus)")
-            lines.append("• *user unmute <nomor>* — Batal bisu user\n")
+            lines.append("• *user unmute <nomor>* — Batal bisu user")
+            lines.append("• *check id @user* — Cek LID/nomor user (hasil dikirim ke super admin via PM)\n")
 
         if rbac.has_permission(sender_id, "ai"):
             lines.append("🧠 *AI Chat*")
@@ -621,6 +622,9 @@ def handle_message(data: dict) -> None:
     elif body.startswith("user unmute "):
         if check_rbac("admin_group"):
             gh.user_unmute_cmd(send_text, chat_id, raw_body, data)
+    elif body.startswith("check id"):
+        if check_rbac("admin_group"):
+            gh.check_id_cmd(send_text, chat_id, data, bot_lid=BOT_LID, bot_phone=BOT_PHONE)
 
     # ── RBAC routing ─────────────────────────────────────────
     elif body == "rbac list users":

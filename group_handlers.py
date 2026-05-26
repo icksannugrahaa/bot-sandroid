@@ -3,6 +3,7 @@ import whatsapp
 import storage
 import logging
 from users import is_admin
+from config import ADMIN_CHAT_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -188,3 +189,82 @@ def user_unmute_cmd(send_text, chat_id, raw_body, data):
     target = clean_number(parts[2])
     storage.unmute_user(chat_id, target)
     send_text(chat_id, f"🔊 {target.replace('@c.us','')} telah di-unmute.")
+
+def check_id_cmd(send_text, chat_id, data, bot_lid: str = "", bot_phone: str = ""):
+    """
+    Handle: check id @user
+
+    Reads the first @mentioned user (that isn't the bot itself) from
+    mentionedJidList, resolves their LID/phone JID, then sends the
+    result privately to every Super Admin in ADMIN_CHAT_IDS.
+    The group only sees a brief acknowledgement.
+    """
+    if not data.get("isGroup"):
+        return send_text(chat_id, "⚠️ Perintah ini hanya bisa digunakan di dalam grup.")
+
+    mentioned_jids = (
+        data.get("mentionedJidList")
+        or data.get("mentionedJids")
+        or []
+    )
+
+    # Build bot JIDs to exclude from the mention list
+    bot_jids = set()
+    if bot_phone:
+        bot_jids.add(f"{bot_phone}@c.us")
+    if bot_lid:
+        bot_jids.add(f"{bot_lid}@lid")
+        bot_jids.add(bot_lid)          # bare LID without domain
+
+    # Pick the first mentioned JID that isn't the bot
+    target_jid = None
+    for jid in mentioned_jids:
+        # Also check the body for @<lid> style raw mentions
+        if jid not in bot_jids and jid.split("@")[0] not in bot_jids:
+            target_jid = jid
+            break
+
+    # Fallback: try to extract an @<number> mention from the raw body
+    if not target_jid:
+        raw_body = (data.get("body") or "").strip()
+        # Find all @-mentions in body
+        mentions_in_body = re.findall(r"@(\d+)", raw_body)
+        for m in mentions_in_body:
+            candidate = f"{m}@lid" if len(m) >= 15 else f"{m}@c.us"
+            if m not in bot_jids and candidate not in bot_jids:
+                target_jid = candidate
+                break
+
+    if not target_jid:
+        return send_text(chat_id, "⚠️ Tidak ada user yang di-mention. Gunakan: *check id @user*")
+
+    # Try to resolve the LID to a real @c.us number
+    resolved_jid = resolve_lid_to_cus(target_jid)
+
+    # Determine display number
+    raw_number = target_jid.split("@")[0]
+    resolved_number = resolved_jid.split("@")[0]
+
+    # Compose the private report
+    lines = ["🔍 *Check ID Result* (dari grup)"]
+    lines.append(f"📌 Grup: `{chat_id}`")
+    lines.append(f"\n👤 *User yang di-check:*")
+    lines.append(f"• JID mentionedJidList : `{target_jid}`")
+    if resolved_jid != target_jid:
+        lines.append(f"• JID resolved (@c.us) : `{resolved_jid}`")
+        lines.append(f"• Nomor HP             : `{resolved_number}`")
+    else:
+        lines.append(f"• Nomor / LID          : `{raw_number}`")
+    report = "\n".join(lines)
+
+    # Send report privately to each super admin
+    if not ADMIN_CHAT_IDS:
+        logger.warning("check_id_cmd: ADMIN_CHAT_IDS is empty, nowhere to send the report.")
+        return send_text(chat_id, "⚠️ Tidak ada super admin yang dikonfigurasi (ADMIN_CHAT_IDS kosong).")
+
+    for admin_id in ADMIN_CHAT_IDS:
+        send_text(admin_id, report)
+        logger.info("check_id_cmd: sent ID report for %s to admin %s", target_jid, admin_id)
+
+    # Brief public ack — no sensitive data in group
+    send_text(chat_id, f"✅ ID info untuk @{raw_number} sudah dikirim ke super admin via PM.")
