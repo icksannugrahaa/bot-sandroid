@@ -671,119 +671,122 @@ def handle_message(data: dict) -> None:
     elif body == "help":
         lines = ["🤖 *Bot Commands*\n"]
 
-        # ── 📋 General ──────────────────────────────────────────
-        lines.append("📋 *General*")
-        lines.append("• *start* — Daftar ke bot (simpan data kamu)")
-        lines.append("• *hello* — Say hello")
-        lines.append("• *ping* — Check if bot is alive")
-        lines.append("• *my id* — Check your exact ID (for admin setup)")
-        if rbac.has_permission(sender_id, "spam"):
-            lines.append("• *spam <nomor> [jumlah]* — Spam pesan (max 5)")
-        lines.append("• *help* — Show this help message\n")
+        # ── 💬 WhatsApp General ─────────────────────────────────────────
+        wa_general_cmds = []
+        if rbac.has_permission(sender_id, "start"): wa_general_cmds.append("• *start* — Daftar ke bot (simpan data kamu)")
+        if rbac.has_permission(sender_id, "hello"): wa_general_cmds.append("• *hello* — Say hello")
+        if rbac.has_permission(sender_id, "ping"):  wa_general_cmds.append("• *ping* — Check if bot is alive")
+        if rbac.has_permission(sender_id, "help"):  wa_general_cmds.append("• *help* — Show this help message")
+        if rbac.has_permission(sender_id, "spam"):  wa_general_cmds.append("• *spam <nomor> [jumlah]* — Spam pesan (max 5)")
+        if rbac.has_permission(sender_id, "ai"):    wa_general_cmds.append("• *[Kirim pesan apa saja]* — AI akan merespon")
+        
+        if wa_general_cmds:
+            lines.append("💬 *WhatsApp General*")
+            lines.extend(wa_general_cmds)
+            lines.append("")
 
-        # ── 🧠 AI Chat ───────────────────────────────────────────
-        if rbac.has_permission(sender_id, "ai"):
-            lines.append("🧠 *AI Chat*")
-            lines.append("• _Kirim pesan biasa apa saja dan AI akan membalas!_\n")
-
-        # ── 📅 Attendance ────────────────────────────────────────
-        has_attendance    = rbac.has_permission(sender_id, "checkin")
-        has_konfigurasi   = rbac.has_permission(sender_id, "set auto")
-        has_lokasi        = rbac.has_permission(sender_id, "list location")
-        has_user_mgmt     = rbac.has_permission(sender_id, "attendance list users")
-        has_login_code    = rbac.has_permission(sender_id, "set ambri pass")
-
-        if any([has_attendance, has_konfigurasi, has_lokasi, has_user_mgmt, has_login_code]):
+        # ── 📅 Attendance ──────────────────────────────────────────────
+        att_cmds = []
+        if rbac.has_permission(sender_id, "checkin"):      att_cmds.append("• *checkin [alias]* — Absen masuk")
+        if rbac.has_permission(sender_id, "checkout"):     att_cmds.append("• *checkout [alias]* — Absen pulang")
+        if rbac.has_permission(sender_id, "list history"): att_cmds.append("• *list history [alias] [week/month]* — Cek riwayat absen")
+        
+        if att_cmds:
             lines.append("📅 *Attendance*")
+            lines.extend(att_cmds)
+            lines.append("")
 
-            if has_attendance:
-                lines.append("  _Absensi_")
-                lines.append("  • *checkin [alias]* — Absen masuk")
-                lines.append("  • *checkout [alias]* — Absen pulang")
-                lines.append("  • *list history [alias] [week/month]* — Cek riwayat absen")
+        # ── ⚙️ Attendance Configuration ───────────────────────────────
+        att_conf_cmds = []
+        if rbac.has_permission(sender_id, "set auto"):                  att_conf_cmds.append("• *set auto on/off [alias]* — Set automasi harian")
+        if rbac.has_permission(sender_id, "set checkin timerange"):     att_conf_cmds.append("• *set checkin timerange [alias] HH:MM HH:MM* — Waktu acak masuk")
+        if rbac.has_permission(sender_id, "set checkout timerange"):    att_conf_cmds.append("• *set checkout timerange [alias] HH:MM HH:MM* — Waktu acak pulang")
+        if rbac.has_permission(sender_id, "set notes"):                 att_conf_cmds.append("• *set notes [alias] [notes]* — Custom notes absen")
+        if rbac.has_permission(sender_id, "clear notes"):               att_conf_cmds.append("• *clear notes [alias]* — Reset notes absen")
+        if rbac.has_permission(sender_id, "list location"):             att_conf_cmds.append("• *list location* — Lihat daftar semua lokasi")
+        if rbac.has_permission(sender_id, "add location"):              att_conf_cmds.append("• *add location [nama] [lat,lng]* — Tambah lokasi baru")
+        if rbac.has_permission(sender_id, "set location"):              att_conf_cmds.append("• *set location [nama] [lat,lng]* — Ubah kordinat lokasi")
+        if rbac.has_permission(sender_id, "attendance list users"):     att_conf_cmds.append("• *attendance list users* — Lihat attendance user terdaftar")
+        if rbac.has_permission(sender_id, "attendance add user"):       att_conf_cmds.append("• *attendance add user <alias> <user> <pass> <imei>* — Tambah attendance user")
+        if rbac.has_permission(sender_id, "attendance login"):          att_conf_cmds.append("• *attendance login [alias]* — Login paksa/refresh token")
+        if rbac.has_permission(sender_id, "attendance register imei"):  att_conf_cmds.append("• *attendance register imei [alias]* — Daftarkan IMEI saat ini")
+        if rbac.has_permission(sender_id, "attendance generate device id"): att_conf_cmds.append("• *attendance generate device id [alias]* — Generate IMEI baru")
+        
+        if att_conf_cmds:
+            lines.append("⚙️ *Attendance Configuration*")
+            lines.extend(att_conf_cmds)
+            lines.append("")
 
-            if has_konfigurasi:
-                lines.append("  _Konfigurasi_")
-                lines.append("  • *set auto on/off [alias]* — Set automasi harian")
-                lines.append("  • *set checkin timerange [alias] HH:MM HH:MM* — Waktu acak masuk")
-                lines.append("  • *set checkout timerange [alias] HH:MM HH:MM* — Waktu acak pulang")
-                lines.append("  • *set notes [alias] [notes]* — Custom notes absen")
-                lines.append("  • *clear notes [alias]* — Reset notes absen")
-
-            if has_lokasi:
-                lines.append("  _Lokasi_")
-                lines.append("  • *list location* — Lihat daftar semua lokasi")
-                lines.append("  • *add location [nama] [lat,lng]* — Tambah lokasi baru")
-
-            if has_user_mgmt:
-                lines.append("  _User Management_")
-                lines.append("  • *attendance list users* — Lihat attendance user terdaftar")
-                lines.append("  • *attendance add user <alias> <user> <pass> <imei>* — Tambah attendance user")
-                lines.append("  • *attendance login [alias]* — Login paksa/refresh token")
-                lines.append("  • *attendance register imei [alias]* — Daftarkan IMEI saat ini")
-                lines.append("  • *attendance generate device id [alias]* — Generate IMEI baru")
-
-            if has_login_code:
-                lines.append("  _Login Code_")
-                lines.append("  • *set ambri pass <password>* — Set your password")
-                lines.append("  • *set ambri totp <secret>* — Set your TOTP secret")
-                lines.append("  • *generate code* — Get your login code")
-
-            lines.append("")  # blank line after section
-
-        # ── 🤖 Bot User Management ───────────────────────────────
-        if rbac.has_permission(sender_id, "bot users"):
+        # ── 🤖 Bot User Management ─────────────────────────────────────
+        bot_user_cmds = []
+        if rbac.has_permission(sender_id, "bot users"): bot_user_cmds.append("• *bot users* — Lihat semua user yang terdaftar ke bot")
+        if rbac.has_permission(sender_id, "bot ban"):   bot_user_cmds.append("• *bot ban <nomor>* — Ban user (blokir akses ke bot)")
+        if rbac.has_permission(sender_id, "bot unban"): bot_user_cmds.append("• *bot unban <nomor>* — Cabut ban user")
+        if rbac.has_permission(sender_id, "set role"):  bot_user_cmds.append("• *set role <nomor> <role>* — Ubah role pengguna")
+        
+        if bot_user_cmds:
             lines.append("🤖 *Bot User Management*")
-            lines.append("• *bot users* — Lihat semua user yang terdaftar ke bot")
-            lines.append("• *bot ban <nomor>* — Ban user (blokir akses ke bot)")
-            lines.append("• *bot unban <nomor>* — Cabut ban user")
-            lines.append("• *set role <nomor> <role>* — Ubah role pengguna\n")
+            lines.extend(bot_user_cmds)
+            lines.append("")
 
-        # ── 💬 WhatsApp General Feature ──────────────────────────
-        has_group_mgmt = rbac.has_permission(sender_id, "group create")
-        has_admin_grp  = rbac.has_permission(sender_id, "admin add")
+        # ── 👥 Group Management ────────────────────────────────────────
+        grp_mgmt_cmds = []
+        if rbac.has_permission(sender_id, "group create"): grp_mgmt_cmds.append("• *group create <nama> [nomor1,nomor2]* — Buat grup baru")
+        if rbac.has_permission(sender_id, "group update"): grp_mgmt_cmds.append("• *group update <nama> | <deskripsi>* — Update info grup")
+        if rbac.has_permission(sender_id, "group users"):  grp_mgmt_cmds.append("• *group users* — List member grup")
+        if rbac.has_permission(sender_id, "group leave"):  grp_mgmt_cmds.append("• *group leave* — Keluar dari grup")
+        
+        if grp_mgmt_cmds:
+            lines.append("👥 *Group Management*")
+            lines.extend(grp_mgmt_cmds)
+            lines.append("")
 
-        if has_group_mgmt or has_admin_grp:
-            lines.append("💬 *WhatsApp General Feature*")
+        # ── 🛡️ Group Admin Management ──────────────────────────────────
+        grp_admin_cmds = []
+        if rbac.has_permission(sender_id, "admin add"):    grp_admin_cmds.append("• *admin add <nomor>* — Jadikan admin")
+        if rbac.has_permission(sender_id, "admin remove"): grp_admin_cmds.append("• *admin remove <nomor>* — Hapus admin")
+        if rbac.has_permission(sender_id, "user add"):     grp_admin_cmds.append("• *user add <nomor>* — Tambah member")
+        if rbac.has_permission(sender_id, "user kick"):    grp_admin_cmds.append("• *user kick <nomor>* — Keluarkan member")
+        if rbac.has_permission(sender_id, "user mute"):    grp_admin_cmds.append("• *user mute <nomor>* — Bisu user (pesan otomatis dihapus)")
+        if rbac.has_permission(sender_id, "user unmute"):  grp_admin_cmds.append("• *user unmute <nomor>* — Batal bisu user")
+        if rbac.has_permission(sender_id, "check id"):     grp_admin_cmds.append("• *check id @user* — Cek LID/nomor user")
+        
+        if grp_admin_cmds:
+            lines.append("🛡️ *Group Admin Management*")
+            lines.extend(grp_admin_cmds)
+            lines.append("")
 
-            if has_group_mgmt:
-                lines.append("  _Group Management_")
-                lines.append("  • *group create <nama> [nomor1,nomor2]* — Buat grup baru")
-                lines.append("  • *group update <nama> | <deskripsi>* (atau +gambar) — Update info grup")
-                lines.append("  • *group users* — List member grup")
-                lines.append("  • *group leave* — Keluar dari grup")
+        # ── 🔑 RBAC Management ─────────────────────────────────────────
+        rbac_cmds = []
+        if rbac.has_permission(sender_id, "rbac list users"): rbac_cmds.append("• *rbac list users* — List users, role, dan fitur aktif")
+        if rbac.has_permission(sender_id, "rbac download"):   rbac_cmds.append("• *rbac download* — Download template Excel RBAC")
+        if rbac.has_permission(sender_id, "rbac upload"):     rbac_cmds.append("• *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC")
+        
+        if rbac_cmds:
+            lines.append("🔑 *RBAC Management*")
+            lines.extend(rbac_cmds)
+            lines.append("")
 
-            if has_admin_grp:
-                lines.append("  _Admin Group_")
-                lines.append("  • *admin add <nomor>* — Jadikan admin")
-                lines.append("  • *admin remove <nomor>* — Hapus admin")
-                lines.append("  • *user add <nomor>* — Tambah member")
-                lines.append("  • *user kick <nomor>* — Keluarkan member")
-                lines.append("  • *user mute <nomor>* — Bisu user (pesan otomatis dihapus)")
-                lines.append("  • *user unmute <nomor>* — Batal bisu user")
-                lines.append("  • *check id @user* — Cek LID/nomor user (dikirim ke super admin via PM)")
+        # ── 🔧 Maintenance ─────────────────────────────────────────────
+        maint_cmds = []
+        if rbac.has_permission(sender_id, "maintenance on"):     maint_cmds.append("• *maintenance on* — Aktifkan mode maintenance")
+        if rbac.has_permission(sender_id, "maintenance off"):    maint_cmds.append("• *maintenance off* — Matikan mode maintenance")
+        if rbac.has_permission(sender_id, "maintenance status"): maint_cmds.append("• *maintenance status* — Cek status maintenance")
+        
+        if maint_cmds:
+            lines.append("🔧 *Maintenance*")
+            lines.extend(maint_cmds)
+            lines.append("")
 
-            lines.append("")  # blank line after section
-
-        # ── 🔑 User Access Feature ───────────────────────────────
-        has_rbac        = rbac.has_permission(sender_id, "rbac list users")
-        has_maintenance = rbac.has_permission(sender_id, "maintenance on")
-
-        if has_rbac or has_maintenance:
-            lines.append("🔑 *User Access Feature*")
-
-            if has_rbac:
-                lines.append("  _RBAC (Access Control)_")
-                lines.append("  • *rbac list users* — List users, role, dan fitur aktif")
-                lines.append("  • *rbac download* — Download template Excel RBAC")
-                lines.append("  • *(kirim file Excel)* + *rbac upload* — Upload & Terapkan RBAC")
-
-            if has_maintenance:
-                lines.append("  _Maintenance_")
-                lines.append("  • *maintenance on* — Aktifkan mode maintenance")
-                lines.append("  • *maintenance off* — Matikan mode maintenance")
-                lines.append("  • *maintenance status* — Cek status maintenance")
-
+        # ── 🔐 Ambri ───────────────────────────────────────────────────
+        ambri_cmds = []
+        if rbac.has_permission(sender_id, "set ambri pass"): ambri_cmds.append("• *set ambri pass <password>* — Set password")
+        if rbac.has_permission(sender_id, "set ambri totp"): ambri_cmds.append("• *set ambri totp <secret>* — Set TOTP secret")
+        if rbac.has_permission(sender_id, "generate code"):  ambri_cmds.append("• *generate code* — Generate login code")
+        
+        if ambri_cmds:
+            lines.append("🔐 *Ambri*")
+            lines.extend(ambri_cmds)
             lines.append("")
 
         lines.append("Made with 🤖 and ❤️\nBy Sandroid")
