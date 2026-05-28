@@ -165,8 +165,8 @@ def cmd_store_open_close(chat_id: str, raw_body: str) -> None:
     if not store:
         return whatsapp.send_text(chat_id, "❌ Store not found.")
         
-    clean_sender = sender_id.split('@')[0]
-    if store['admin_phone'] != clean_sender and store['phone_number'] != clean_sender and rbac.get_user_role(sender_id) != "super admin":
+    clean_sender = chat_id.split('@')[0]
+    if store['admin_phone'] != clean_sender and store['phone_number'] != clean_sender and rbac.get_user_role(chat_id) != "super admin":
         return whatsapp.send_text(chat_id, "❌ Unauthorized. You do not own this store.")
         
     es.set_store_open(store['id'], is_open)
