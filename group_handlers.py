@@ -182,8 +182,12 @@ def group_leave_cmd(send_text, chat_id, data):
     whatsapp.leave_group(chat_id)
 
 def get_target_jid(parts, data, chat_id=None):
+    import logging
+    logger = logging.getLogger(__name__)
+    
     mentioned_jids = data.get("mentionedJidList") or data.get("mentionedJids") or []
     if mentioned_jids:
+        logger.info("Found mentioned JIDs in webhook: %s", mentioned_jids)
         return mentioned_jids[0]
         
     if len(parts) >= 3:
@@ -196,12 +200,17 @@ def get_target_jid(parts, data, chat_id=None):
             info = whatsapp.get_group_info(chat_id)
             if info.get("success"):
                 participants = info.get("data", {}).get("participants", [])
+                logger.info("Group participants fetched: %s", participants)
                 for p in participants:
                     pid = p.get("id", "")
                     if pid.startswith(num + "@"):
+                        logger.info("Resolved %s to exact JID: %s", num, pid)
                         return pid
+            else:
+                logger.error("Failed to fetch group info: %s", info)
                         
         # Fallback if not found
+        logger.warning("Falling back to bare number for target: %s", num)
         return num
     return None
 
@@ -248,8 +257,14 @@ def user_kick_cmd(send_text, chat_id, raw_body, data):
         return send_text(chat_id, "🛡️ Tidak dapat mengeluarkan Super Admin atau Bot.")
         
     res = whatsapp.remove_group_participant(chat_id, [target])
-    if res.get("success"): send_text(chat_id, f"✅ Berhasil mengeluarkan {target.replace('@c.us','').replace('@lid','')} dari grup.")
-    else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
+    if res.get("success"):
+        send_text(chat_id, f"✅ Berhasil mengeluarkan {target.replace('@c.us','').replace('@lid','')} dari grup.")
+    else:
+        err_msg = str(res.get('error'))
+        if "500" in err_msg and "@lid" in target:
+            send_text(chat_id, f"❌ Gagal mengeluarkan {target.replace('@lid','')}.\n\n⚠️ *Info Teknis:* Target adalah akun '@lid' (Linked Device). OpenWA versi ini menggunakan engine 'whatsapp-web.js' v1.26 yang belum mendukung pengeluaran akun '@lid' (fitur ini baru ada di v1.29+). Silakan update 'whatsapp-web.js' di server OpenWA Anda atau keluarkan manual lewat HP.")
+        else:
+            send_text(chat_id, f"❌ Gagal: {err_msg}")
 
 def user_mute_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
