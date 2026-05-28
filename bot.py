@@ -1141,7 +1141,7 @@ def generate_code_api():
     if res and res.get("success") is not False:
         return jsonify({"success": True, "message": "OTP sent successfully"}), 200
     else:
-        return jsonify({"success": False, "error": "Failed to send WhatsApp message", "details": res}), 500
+        return jsonify({"success": False, "error": "Failed to send WhatsApp message", "results": res}), 500
 
 @app.route("/api/validate-code", methods=["POST"])
 def validate_code_api():
