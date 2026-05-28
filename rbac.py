@@ -537,7 +537,7 @@ def list_users_with_roles() -> str:
                 
         raw_features = role_features.get(role.lower(), [])
         feature_labels = sorted(set(FEATURE_LABELS.get(f, f) for f in raw_features))
-        feature_str = "\n    " + "\n    ".join(feature_labels) if feature_labels else "-"
+        feature_str = f"{len(feature_labels)} akses" if feature_labels else "-"
         
         display_id = chat_id.replace("@c.us", "")
         

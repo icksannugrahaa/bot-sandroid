@@ -65,19 +65,30 @@ def group_create_cmd(send_text, chat_id, raw_body):
         else:
             name_parts.append(p)
             
+    # Support trailing 'admin_only' flag
+    admin_only = False
+    if name_parts and name_parts[-1].lower() == "admin_only":
+        admin_only = True
+        name_parts.pop()
+        
     name = " ".join(name_parts)
     if not name:
         return send_text(chat_id, "⚠️ Nama grup tidak boleh kosong.")
         
     if not participants:
-        return send_text(chat_id, "⚠️ Gagal membuat grup: Anda harus memasukkan minimal 1 nomor peserta.\nFormat: *group create <nama> <nomor_peserta>*")
+        return send_text(chat_id, "⚠️ Gagal membuat grup: Anda harus memasukkan minimal 1 nomor peserta.\nFormat: *group create <nama> <nomor_peserta> [admin_only]*")
         
     send_text(chat_id, f"⏳ Sedang membuat grup '{name}' dengan {len(participants)} peserta...")
     res = whatsapp.create_group(name, participants)
-    if res.get("success"):
-        send_text(chat_id, f"✅ Grup berhasil dibuat!")
+    
+    # OpenWA returns raw group info on success, so we check if 'id' or 'gid' is in the result.
+    if res.get("success") or ("id" in res) or ("gid" in res):
+        reply = f"✅ Grup berhasil dibuat!"
+        if admin_only:
+            reply += "\n\n⚠️ *Catatan:* Setting 'admin_only' belum didukung oleh REST API OpenWA versi ini, sehingga pengaturan izin pesan grup tidak dapat diubah oleh bot."
+        send_text(chat_id, reply)
     else:
-        send_text(chat_id, f"❌ Gagal membuat grup: {res.get('error')}")
+        send_text(chat_id, f"❌ Gagal membuat grup: {res.get('error', res)}")
 
 def group_update_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"):
