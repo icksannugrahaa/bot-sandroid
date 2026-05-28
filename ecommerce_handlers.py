@@ -11,9 +11,9 @@ import threading
 import time
 
 import whatsapp
+import rbac
 import ecommerce_storage as es
 import storage
-
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ def cmd_store_open_close(chat_id: str, raw_body: str) -> None:
         return whatsapp.send_text(chat_id, "❌ Store not found.")
         
     clean_sender = sender_id.split('@')[0]
-    if store['admin_phone'] != clean_sender and store['phone_number'] != clean_sender and not storage.is_admin(sender_id):
+    if store['admin_phone'] != clean_sender and store['phone_number'] != clean_sender and rbac.get_user_role(sender_id) != "super admin":
         return whatsapp.send_text(chat_id, "❌ Unauthorized. You do not own this store.")
         
     es.set_store_open(store['id'], is_open)
@@ -203,7 +203,7 @@ def cmd_update_product(chat_id: str, raw_body: str, media: dict) -> None:
         return whatsapp.send_text(chat_id, "❌ Store not found.")
         
     clean_sender = chat_id.split('@')[0]
-    if store['admin_phone'] != clean_sender and store['phone_number'] != clean_sender and not storage.is_admin(chat_id):
+    if store['admin_phone'] != clean_sender and store['phone_number'] != clean_sender and rbac.get_user_role(chat_id) != "super admin":
         return whatsapp.send_text(chat_id, "❌ Unauthorized. You do not own this store.")
         
     if store['is_open']:
@@ -570,7 +570,7 @@ def cmd_payment_cancel(chat_id: str, raw_body: str, sender_id: str) -> None:
     if not order:
         return whatsapp.send_text(chat_id, "❌ Order not found.")
         
-    if order['user_id'] != sender_id and not storage.is_admin(sender_id):
+    if order['user_id'] != sender_id and rbac.get_user_role(sender_id) != "super admin":
         return whatsapp.send_text(chat_id, "❌ Unauthorized.")
         
     if order['status'] != 'pending':
