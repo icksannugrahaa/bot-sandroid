@@ -478,6 +478,15 @@ def _is_asking_about_creator(text: str) -> bool:
     """Return True if the message is asking who made/created the bot."""
     return bool(_CREATOR_RE.search(text))
 
+_SANDROID_PATTERNS = [
+    r"who\s+(is|are)\s+sandroid",
+    r"siapa\s+(itu\s+)?sandroid",
+]
+_SANDROID_RE = re.compile("|".join(f"({p})" for p in _SANDROID_PATTERNS), re.IGNORECASE)
+
+def _is_asking_who_is_sandroid(text: str) -> bool:
+    return bool(_SANDROID_RE.search(text))
+
 
 # ──────────────────────────────────────────────────────────────
 # Message router
@@ -935,6 +944,9 @@ def handle_message(data: dict) -> None:
                 send_text(chat_id, "⚠️ Usage: *set role <nomor> <role_name>*\nContoh: *set role 628123 admin*")
 
     # ── "Who made the bot?" detector ────────────────────────
+    elif _is_asking_who_is_sandroid(body):
+        send_text(chat_id, "kepo banget")
+        
     elif _is_asking_about_creator(body):
         send_text(chat_id, "🤖 Bot ini dibuat oleh *Sandroid* ✨\n\nMade with 🤖 and ❤️")
 
