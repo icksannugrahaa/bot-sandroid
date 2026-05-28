@@ -142,7 +142,7 @@ def admin_add_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *admin add <nomor>*")
-    target = resolve_lid_to_cus(clean_number(parts[2]))
+    target = clean_number(parts[2])
     res = whatsapp.add_group_admin(chat_id, [target])
     if res.get("success"): send_text(chat_id, f"✅ Berhasil mengangkat {target.replace('@c.us','').replace('@lid','')} menjadi admin.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
@@ -151,7 +151,7 @@ def admin_remove_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *admin remove <nomor>*")
-    target = resolve_lid_to_cus(clean_number(parts[2]))
+    target = clean_number(parts[2])
     
     import rbac
     if rbac.is_protected(target):
@@ -165,7 +165,7 @@ def user_add_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user add <nomor>*")
-    target = resolve_lid_to_cus(clean_number(parts[2]))
+    target = clean_number(parts[2])
     res = whatsapp.add_group_participant(chat_id, [target])
     if res.get("success"): send_text(chat_id, f"✅ Berhasil menambahkan {target.replace('@c.us','').replace('@lid','')} ke grup.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
@@ -174,7 +174,7 @@ def user_kick_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user kick <nomor>*")
-    target = resolve_lid_to_cus(clean_number(parts[2]))
+    target = clean_number(parts[2])
     
     import rbac
     if rbac.is_protected(target):

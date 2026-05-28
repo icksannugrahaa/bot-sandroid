@@ -76,13 +76,10 @@ def send_file(chat_id: str, base64_data: str, mimetype: str, filename: str, capt
         logger.error("❌ Request failed for %s: %s", chat_id, exc)
         return {"success": False, "error": str(exc)}
 
-def _format_participants(participants: list) -> list:
-    return [{"id": p} if isinstance(p, str) else p for p in participants]
-
 def create_group(name: str, participants: list) -> dict:
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
-    payload = {"name": name, "participants": _format_participants(participants)}
+    payload = {"name": name, "participants": participants}
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
@@ -158,7 +155,7 @@ def leave_group(group_id: str) -> dict:
 def add_group_admin(group_id: str, participants: list) -> dict:
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants/promote"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
-    payload = {"participants": _format_participants(participants)}
+    payload = {"participants": participants}
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
@@ -170,7 +167,7 @@ def add_group_admin(group_id: str, participants: list) -> dict:
 def remove_group_admin(group_id: str, participants: list) -> dict:
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants/demote"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
-    payload = {"participants": _format_participants(participants)}
+    payload = {"participants": participants}
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
@@ -182,7 +179,7 @@ def remove_group_admin(group_id: str, participants: list) -> dict:
 def add_group_participant(group_id: str, participants: list) -> dict:
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
-    payload = {"participants": _format_participants(participants)}
+    payload = {"participants": participants}
     try:
         resp = requests.post(url, json=payload, headers=headers, timeout=30)
         resp.raise_for_status()
@@ -195,7 +192,7 @@ def remove_group_participant(group_id: str, participants: list) -> dict:
     import json
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/participants"
     headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
-    payload = {"participants": _format_participants(participants)}
+    payload = {"participants": participants}
     try:
         resp = requests.request("DELETE", url, data=json.dumps(payload), headers=headers, timeout=30)
         resp.raise_for_status()
