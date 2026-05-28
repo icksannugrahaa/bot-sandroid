@@ -787,6 +787,8 @@ def handle_message(data: dict) -> None:
         if check_rbac("batch send"):
             cmd_batch_send(chat_id, data.get("media"))
 
+    elif body.startswith("create store "):
+        if check_rbac("store admin"): eh.cmd_store_create(chat_id, raw_body)
     elif body.startswith("store "):
         if body.startswith("store create"):
             if check_rbac("store admin"): eh.cmd_store_create(chat_id, raw_body)
@@ -977,7 +979,7 @@ def handle_message(data: dict) -> None:
         ecom_admin_cmds = []
 
         if rbac.has_permission(sender_id, "store admin"):
-            ecom_admin_cmds.append("• *store create <phone> <admin_phone> <address>* — Buat toko baru")
+            ecom_admin_cmds.append("• *create store <name> <phone> <address>* — Buat toko baru")
             store = eh.es.get_store_by_admin(sender_id)
             if store:
                 ecom_admin_cmds.append(f"• *store {store['id']} open/close* — Buka/tutup toko")

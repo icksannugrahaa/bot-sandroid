@@ -88,6 +88,18 @@ def create_group(name: str, participants: list) -> dict:
         error_body = exc.response.text if exc.response is not None else "no response body"
         logger.error("❌ HTTP %s for group create: %s", exc.response.status_code if exc.response else '?', error_body)
         return {"success": False, "error": error_body}
+
+def get_group_invite_code(group_id: str) -> str:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/invite-code"
+    headers = {"X-API-Key": OPENWA_API_KEY}
+    try:
+        resp = requests.get(url, headers=headers, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        return f"https://chat.whatsapp.com/{data}"
+    except Exception as exc:
+        logger.error("❌ Failed to get invite code for %s: %s", group_id, exc)
+        return ""
     except Exception as exc:
         logger.error("❌ Failed to create group: %s", exc)
         return {"success": False, "error": str(exc)}

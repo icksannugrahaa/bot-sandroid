@@ -38,20 +38,36 @@ def generate_qr_base64(data: str) -> str:
 # Store Management
 # ──────────────────────────────────────────────────────────────
 def cmd_store_create(chat_id: str, raw_body: str) -> None:
-    # store create phone_number admin_phone address
-    # E.g. store create 628111 628222 Jl. Sudirman
-    parts = raw_body.split(maxsplit=4)
-    if len(parts) < 5:
-        whatsapp.send_text(chat_id, "⚠️ Usage: *store create <phone_number> <admin_phone> <address>*")
-        return
-        
-    phone = parts[2].strip()
-    admin_phone = parts[3].strip()
-    address = parts[4].strip()
+    # E.g. create store Sandroid Shop 628222 Jl. Sudirman
+    prefix = "store create " if raw_body.startswith("store create") else "create store "
+    content = raw_body[len(prefix):].strip()
     
-    store_id = f"STORE-{phone[-4:]}"
-    es.create_store(store_id, f"Store {phone}", phone, admin_phone, address, group_url="")
-    whatsapp.send_text(chat_id, f"✅ Store created!\nID: {store_id}\nPhone: {phone}\nAdmin: {admin_phone}\nAddress: {address}")
+    match = re.search(r'^(.*?)\s+(\d{10,15})\s+(.*)$', content)
+    if not match:
+        return whatsapp.send_text(chat_id, "⚠️ Usage: *create store <store_name> <admin_phone> <address>*\nExample: *create store Sandroid Shop 628123456789 Jl. Sudirman No 1*")
+        
+    store_name = match.group(1).strip()
+    admin_phone = match.group(2).strip()
+    address = match.group(3).strip()
+    
+    store_id = f"STORE-{admin_phone[-4:]}"
+    
+    # Auto-create group
+    group_url = ""
+    group_resp = whatsapp.create_group(f"Komunitas {store_name}", [f"{admin_phone}@c.us"])
+    if group_resp and isinstance(group_resp, dict) and "id" in group_resp:
+        group_id = group_resp["id"]
+        group_url = whatsapp.get_group_invite_code(group_id)
+        
+    es.create_store(store_id, store_name, admin_phone, admin_phone, address, group_url=group_url)
+    
+    msg = f"✅ Store created!\nID: {store_id}\nName: {store_name}\nAdmin: {admin_phone}\nAddress: {address}"
+    if group_url:
+        msg += f"\n\n🔗 Community Group created:\n{group_url}"
+    else:
+        msg += "\n\n⚠️ Failed to create community group automatically."
+        
+    whatsapp.send_text(chat_id, msg)
 
 def cmd_store_list(chat_id: str) -> None:
     stores = es.get_all_stores()
