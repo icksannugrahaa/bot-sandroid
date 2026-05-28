@@ -169,6 +169,15 @@ def init_db() -> None:
             logger.info("🔧 Migrated bot_users: added is_banned column")
         except sqlite3.OperationalError:
             pass  # Column already exists
+            
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS otp_codes (
+                phone_number TEXT PRIMARY KEY,
+                code TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                last_sent_at TEXT NOT NULL
+            )
+        """)
         conn.commit()
         logger.info("📦 Database initialized at %s", DB_PATH)
     finally:
@@ -680,3 +689,79 @@ def is_bot_user_banned(sender_id: str) -> bool:
     if not user:
         return False
     return bool(user.get("is_banned"))
+
+# ──────────────────────────────────────────────────────────────
+# OTP API
+# ──────────────────────────────────────────────────────────────
+
+def can_request_otp(phone: str, cooldown: int = 60) -> tuple[bool, int]:
+    """Check if the user is allowed to request a new OTP.
+    Returns (allowed, time_remaining).
+    """
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cursor = conn.execute("SELECT last_sent_at FROM otp_codes WHERE phone_number = ?", (phone,))
+        row = cursor.fetchone()
+        if not row:
+            return True, 0
+            
+        last_sent = datetime.fromisoformat(row[0])
+        now = datetime.now(timezone.utc)
+        elapsed = (now - last_sent).total_seconds()
+        
+        if elapsed < cooldown:
+            return False, int(cooldown - elapsed)
+        return True, 0
+    finally:
+        conn.close()
+
+def generate_and_save_otp(phone: str, expires_in: int = 300) -> str:
+    """Generate a 6-digit OTP, save it to the DB, and return it."""
+    import random
+    from datetime import timedelta
+    code = f"{random.randint(0, 999999):06d}"
+    
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=expires_in)
+    
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("""
+            INSERT INTO otp_codes (phone_number, code, expires_at, last_sent_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(phone_number) DO UPDATE SET
+                code=excluded.code,
+                expires_at=excluded.expires_at,
+                last_sent_at=excluded.last_sent_at
+        """, (phone, code, expires_at.isoformat(), now.isoformat()))
+        conn.commit()
+        return code
+    finally:
+        conn.close()
+
+def verify_otp(phone: str, code: str) -> bool:
+    """Verify an OTP code. Deletes the code if valid."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        cursor = conn.execute("SELECT code, expires_at FROM otp_codes WHERE phone_number = ?", (phone,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+            
+        stored_code, expires_at_str = row
+        expires_at = datetime.fromisoformat(expires_at_str)
+        now = datetime.now(timezone.utc)
+        
+        if now > expires_at:
+            # Expired
+            return False
+            
+        if stored_code == str(code).strip():
+            # Valid, consume it
+            conn.execute("DELETE FROM otp_codes WHERE phone_number = ?", (phone,))
+            conn.commit()
+            return True
+            
+        return False
+    finally:
+        conn.close()

@@ -997,6 +997,51 @@ def health():
     """Simple health-check endpoint."""
     return jsonify({"status": "running", "bot": "openwa-bot"}), 200
 
+# ──────────────────────────────────────────────────────────────
+# Public OTP APIs
+# ──────────────────────────────────────────────────────────────
+
+@app.route("/api/generate-code", methods=["POST"])
+def generate_code_api():
+    payload = request.get_json(silent=True)
+    if not payload or "phone_number" not in payload:
+        return jsonify({"success": False, "error": "Missing phone_number"}), 400
+        
+    phone = payload["phone_number"]
+    
+    # Check cooldown
+    allowed, time_left = storage.can_request_otp(phone, cooldown=60)
+    if not allowed:
+        return jsonify({"success": False, "error": "Cooldown active", "retry_in_seconds": time_left}), 429
+        
+    # Generate OTP
+    code = storage.generate_and_save_otp(phone, expires_in=300)
+    
+    # Send via WhatsApp
+    chat_id = f"{phone}@c.us"
+    msg = f"🔐 *Kode OTP Anda adalah: {code}*\n\nBerlaku selama 5 menit. JANGAN BERIKAN KODE INI KEPADA SIAPAPUN."
+    res = whatsapp.send_text(chat_id, msg)
+    
+    if res and res.get("success"):
+        return jsonify({"success": True, "message": "OTP sent successfully"}), 200
+    else:
+        return jsonify({"success": False, "error": "Failed to send WhatsApp message"}), 500
+
+@app.route("/api/validate-code", methods=["POST"])
+def validate_code_api():
+    payload = request.get_json(silent=True)
+    if not payload or "phone_number" not in payload or "code" not in payload:
+        return jsonify({"success": False, "error": "Missing phone_number or code"}), 400
+        
+    phone = payload["phone_number"]
+    code = payload["code"]
+    
+    is_valid = storage.verify_otp(phone, code)
+    if is_valid:
+        return jsonify({"success": True, "message": "OTP validated successfully"}), 200
+    else:
+        return jsonify({"success": False, "error": "Invalid or expired OTP"}), 400
+
 
 # ──────────────────────────────────────────────────────────────
 # Entry point
