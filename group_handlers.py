@@ -181,18 +181,34 @@ def group_leave_cmd(send_text, chat_id, data):
     send_text(chat_id, "👋 Selamat tinggal! Bot akan keluar dari grup.")
     whatsapp.leave_group(chat_id)
 
-def get_target_jid(parts, data):
+def get_target_jid(parts, data, chat_id=None):
     mentioned_jids = data.get("mentionedJidList") or data.get("mentionedJids") or []
     if mentioned_jids:
         return mentioned_jids[0]
+        
     if len(parts) >= 3:
-        return clean_number(parts[2])
+        num = clean_number(parts[2])
+        if not num: return None
+        
+        # Resolve real JID (e.g. @lid vs @c.us) from group members
+        if chat_id:
+            import whatsapp
+            info = whatsapp.get_group_info(chat_id)
+            if info.get("success"):
+                participants = info.get("data", {}).get("participants", [])
+                for p in participants:
+                    pid = p.get("id", "")
+                    if pid.startswith(num + "@"):
+                        return pid
+                        
+        # Fallback if not found
+        return num
     return None
 
 def admin_add_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    target = get_target_jid(parts, data)
+    target = get_target_jid(parts, data, chat_id)
     if not target: return send_text(chat_id, "⚠️ Usage: *admin add <nomor>*")
     res = whatsapp.add_group_admin(chat_id, [target])
     if res.get("success"): send_text(chat_id, f"✅ Berhasil mengangkat {target.replace('@c.us','').replace('@lid','')} menjadi admin.")
@@ -201,7 +217,7 @@ def admin_add_cmd(send_text, chat_id, raw_body, data):
 def admin_remove_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    target = get_target_jid(parts, data)
+    target = get_target_jid(parts, data, chat_id)
     if not target: return send_text(chat_id, "⚠️ Usage: *admin remove <nomor>*")
     
     import rbac
@@ -215,7 +231,7 @@ def admin_remove_cmd(send_text, chat_id, raw_body, data):
 def user_add_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    target = get_target_jid(parts, data)
+    target = get_target_jid(parts, data, chat_id)
     if not target: return send_text(chat_id, "⚠️ Usage: *user add <nomor>*")
     res = whatsapp.add_group_participant(chat_id, [target])
     if res.get("success"): send_text(chat_id, f"✅ Berhasil menambahkan {target.replace('@c.us','').replace('@lid','')} ke grup.")
@@ -224,7 +240,7 @@ def user_add_cmd(send_text, chat_id, raw_body, data):
 def user_kick_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    target = get_target_jid(parts, data)
+    target = get_target_jid(parts, data, chat_id)
     if not target: return send_text(chat_id, "⚠️ Usage: *user kick <nomor>*")
     
     import rbac
@@ -238,7 +254,7 @@ def user_kick_cmd(send_text, chat_id, raw_body, data):
 def user_mute_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    target = get_target_jid(parts, data)
+    target = get_target_jid(parts, data, chat_id)
     if not target: return send_text(chat_id, "⚠️ Usage: *user mute <nomor>*")
     
     import rbac
@@ -251,7 +267,7 @@ def user_mute_cmd(send_text, chat_id, raw_body, data):
 def user_unmute_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    target = get_target_jid(parts, data)
+    target = get_target_jid(parts, data, chat_id)
     if not target: return send_text(chat_id, "⚠️ Usage: *user unmute <nomor>*")
     storage.unmute_user(chat_id, target)
     send_text(chat_id, f"🔊 {target.replace('@c.us','').replace('@lid','')} telah di-unmute.")
