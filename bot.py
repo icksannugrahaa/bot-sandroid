@@ -1022,10 +1022,12 @@ def generate_code_api():
     msg = f"🔐 *Kode OTP Anda adalah: {code}*\n\nBerlaku selama 5 menit. JANGAN BERIKAN KODE INI KEPADA SIAPAPUN."
     res = whatsapp.send_text(chat_id, msg)
     
-    if res and res.get("success"):
+    # whatsapp.send_text returns {"success": False, ...} on failure, 
+    # but on success it returns the raw API response which might not have "success": True.
+    if res and res.get("success") is not False:
         return jsonify({"success": True, "message": "OTP sent successfully"}), 200
     else:
-        return jsonify({"success": False, "error": "Failed to send WhatsApp message"}), 500
+        return jsonify({"success": False, "error": "Failed to send WhatsApp message", "details": res}), 500
 
 @app.route("/api/validate-code", methods=["POST"])
 def validate_code_api():
