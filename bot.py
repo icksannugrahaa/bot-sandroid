@@ -829,7 +829,7 @@ def handle_message(data: dict) -> None:
     elif body.startswith("payment method set"):
         if check_rbac("store admin"): eh.cmd_payment_method_set(chat_id, raw_body)
 
-    elif body == "order type" or body == "order type status":
+    elif body in ("order type", "order type status", "order type list"):
         eh.cmd_order_type_list(chat_id)
     elif body.startswith("order type active"):
         if check_rbac("store admin"): eh.cmd_order_type_active(chat_id, raw_body)

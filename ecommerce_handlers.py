@@ -407,16 +407,18 @@ def cmd_order_type_list(chat_id: str) -> None:
     whatsapp.send_text(chat_id, "\n".join(lines))
 
 def cmd_order_type_active(chat_id: str, raw_body: str) -> None:
-    name = parse_id_name(raw_body)
-    if not name:
+    parts = raw_body.split(maxsplit=3)
+    if len(parts) < 4:
         return whatsapp.send_text(chat_id, "⚠️ Usage: *order type active <name>*")
+    name = parts[3].strip()
     es.set_order_type_status(name, True)
     whatsapp.send_text(chat_id, f"✅ Order type '{name}' is now active.")
 
 def cmd_order_type_inactive(chat_id: str, raw_body: str) -> None:
-    name = parse_id_name(raw_body)
-    if not name:
+    parts = raw_body.split(maxsplit=3)
+    if len(parts) < 4:
         return whatsapp.send_text(chat_id, "⚠️ Usage: *order type nonactive <name>*")
+    name = parts[3].strip()
     es.set_order_type_status(name, False)
     whatsapp.send_text(chat_id, f"✅ Order type '{name}' is now inactive.")
 
@@ -431,16 +433,18 @@ def cmd_payment_method_list(chat_id: str) -> None:
     whatsapp.send_text(chat_id, "\n".join(lines))
 
 def cmd_payment_method_active(chat_id: str, raw_body: str) -> None:
-    name = parse_id_name(raw_body)
-    if not name:
+    parts = raw_body.split(maxsplit=3)
+    if len(parts) < 4:
         return whatsapp.send_text(chat_id, "⚠️ Usage: *payment method active <name>*")
+    name = parts[3].strip()
     es.set_payment_method_status(name, True)
     whatsapp.send_text(chat_id, f"✅ Payment method '{name}' is now active.")
 
 def cmd_payment_method_inactive(chat_id: str, raw_body: str) -> None:
-    name = parse_id_name(raw_body)
-    if not name:
+    parts = raw_body.split(maxsplit=3)
+    if len(parts) < 4:
         return whatsapp.send_text(chat_id, "⚠️ Usage: *payment method nonactive <name>*")
+    name = parts[3].strip()
     es.set_payment_method_status(name, False)
     whatsapp.send_text(chat_id, f"✅ Payment method '{name}' is now inactive.")
 
