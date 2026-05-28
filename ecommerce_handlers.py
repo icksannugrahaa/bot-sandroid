@@ -578,5 +578,3 @@ def cmd_payment_cancel(chat_id: str, raw_body: str, sender_id: str) -> None:
         
     es.update_order_status(order_id, 'cancel')
     whatsapp.send_text(chat_id, f"✅ Order {order_id} cancelled.")
-rder_status(order_id, 'cancel')
-    whatsapp.send_text(chat_id, f"✅ Order {order_id} cancelled.")
