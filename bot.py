@@ -980,7 +980,7 @@ def handle_message(data: dict) -> None:
 
         if rbac.has_permission(sender_id, "store admin"):
             ecom_admin_cmds.append("• *create store <name> <phone> <address>* — Buat toko baru")
-            store = eh.es.get_store_by_admin(sender_id)
+            store = eh.es.get_store_by_admin(sender_id.split('@')[0])
             if store:
                 ecom_admin_cmds.append(f"• *store {store['id']} open/close* — Buka/tutup toko")
                 ecom_admin_cmds.append("• *product download* — Download template produk (Excel)")

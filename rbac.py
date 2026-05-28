@@ -192,8 +192,6 @@ def has_permission(chat_id: str, feature: str) -> bool:
     """Checks if a user has permission to access a feature."""
     role = get_user_role(chat_id)
     
-    # Super admin always has access, but we still respect the matrix if defined.
-    # However, if it's not defined in the matrix, super admin gets access.
     
     perms = storage.get_all_rbac_permissions()
     
@@ -207,6 +205,10 @@ def has_permission(chat_id: str, feature: str) -> bool:
             return p["is_active"]
             
     # Fallback if rule not found in DB
+    fallback_roles = DEFAULT_MATRIX.get(feature.lower())
+    if fallback_roles:
+        return fallback_roles.get(role, False)
+        
     if role == "super admin":
         return True
     return False
