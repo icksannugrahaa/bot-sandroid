@@ -809,7 +809,7 @@ def handle_message(data: dict) -> None:
 
     elif body == "product download":
         if check_rbac("store admin"): eh.cmd_product_download(chat_id)
-    elif body.startswith("update product"):
+    elif body.startswith("product update"):
         if check_rbac("store admin"): eh.cmd_update_product(chat_id, raw_body, data.get("media"))
     elif body.startswith("product list"):
         eh.cmd_product_list(chat_id, raw_body)
@@ -984,7 +984,7 @@ def handle_message(data: dict) -> None:
             if store:
                 ecom_admin_cmds.append(f"• *store {store['id']} open/close* — Buka/tutup toko")
                 ecom_admin_cmds.append("• *product download* — Download template produk (Excel)")
-                ecom_admin_cmds.append(f"• *update product {store['id']}* + Excel — Update produk toko")
+                ecom_admin_cmds.append(f"• *product update {store['id']}* + Excel — Update produk toko")
                 ecom_admin_cmds.append("• *payment method active/nonactive <name>* — Status metode bayar")
                 ecom_admin_cmds.append("• *payment method set <name> <url>* — Set gambar QR metode bayar")
                 ecom_admin_cmds.append("• *order type active/nonactive <name>* — Status tipe order")

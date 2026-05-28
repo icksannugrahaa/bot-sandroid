@@ -190,13 +190,13 @@ def cmd_product_download(chat_id: str) -> None:
     b64_data = base64.b64encode(output.read()).decode('utf-8')
     mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     filename = "product_template.xlsx"
-    caption = "📄 *Product Template*\n\nFill this out and reply with:\n*update product <store_id>*"
+    caption = "📄 *Product Template*\n\nFill this out and reply with:\n*product update <store_id>*"
     whatsapp.send_file(chat_id, b64_data, mimetype, filename, caption)
 
 def cmd_update_product(chat_id: str, raw_body: str, media: dict) -> None:
     store_identifier = parse_id_name(raw_body)
     if not store_identifier:
-        return whatsapp.send_text(chat_id, "⚠️ Usage: *update product <store_id>* (attach the Excel file)")
+        return whatsapp.send_text(chat_id, "⚠️ Usage: *product update <store_id>* (attach the Excel file)")
         
     store = es.get_store(store_identifier)
     if not store:
@@ -562,4 +562,6 @@ def cmd_payment_cancel(chat_id: str, raw_body: str, sender_id: str) -> None:
         return whatsapp.send_text(chat_id, f"❌ Cannot cancel order that is {order['status']}.")
         
     es.update_order_status(order_id, 'cancel')
+    whatsapp.send_text(chat_id, f"✅ Order {order_id} cancelled.")
+rder_status(order_id, 'cancel')
     whatsapp.send_text(chat_id, f"✅ Order {order_id} cancelled.")
