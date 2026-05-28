@@ -20,6 +20,7 @@ import group_handlers as gh
 from users import is_admin
 import rbac
 import whatsapp
+import ecommerce_handlers as eh
 
 # Load .env file (must be called before os.getenv)
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -786,6 +787,60 @@ def handle_message(data: dict) -> None:
         if check_rbac("batch send"):
             cmd_batch_send(chat_id, data.get("media"))
 
+    elif body.startswith("store "):
+        if body.startswith("store create"):
+            if check_rbac("store admin"): eh.cmd_store_create(chat_id, raw_body)
+        elif body == "store list":
+            eh.cmd_store_list(chat_id)
+        elif body.startswith("store follow"):
+            eh.cmd_store_follow(chat_id, raw_body, sender_id)
+        elif body.startswith("store unfollow"):
+            eh.cmd_store_unfollow(chat_id, raw_body, sender_id)
+        elif body.startswith("store group"):
+            eh.cmd_store_group(chat_id, raw_body)
+        elif body.startswith("store location"):
+            eh.cmd_store_location(chat_id, raw_body)
+        elif body.startswith("store cs"):
+            eh.cmd_store_cs(chat_id, raw_body, sender_id)
+        elif body.endswith(" open") or body.endswith(" close"):
+            if check_rbac("store admin"): eh.cmd_store_open_close(chat_id, raw_body)
+
+    elif body == "product download":
+        if check_rbac("store admin"): eh.cmd_product_download(chat_id)
+    elif body.startswith("update product"):
+        if check_rbac("store admin"): eh.cmd_update_product(chat_id, raw_body, data.get("media"))
+    elif body.startswith("product list"):
+        eh.cmd_product_list(chat_id, raw_body)
+    elif body.startswith("product search"):
+        eh.cmd_product_search(chat_id, raw_body)
+    elif body.startswith("product cart"):
+        eh.cmd_product_cart(chat_id, raw_body, sender_id)
+    elif body.startswith("product buy"):
+        eh.cmd_product_buy(chat_id, raw_body, sender_id)
+
+    elif body == "payment method list" or body == "payment method status":
+        eh.cmd_payment_method_list(chat_id)
+    elif body.startswith("payment method active"):
+        if check_rbac("store admin"): eh.cmd_payment_method_active(chat_id, raw_body)
+    elif body.startswith("payment method nonactive"):
+        if check_rbac("store admin"): eh.cmd_payment_method_inactive(chat_id, raw_body)
+    elif body.startswith("payment method set"):
+        if check_rbac("store admin"): eh.cmd_payment_method_set(chat_id, raw_body)
+
+    elif body == "order type" or body == "order type status":
+        eh.cmd_order_type_list(chat_id)
+    elif body.startswith("order type active"):
+        if check_rbac("store admin"): eh.cmd_order_type_active(chat_id, raw_body)
+    elif body.startswith("order type nonactive"):
+        if check_rbac("store admin"): eh.cmd_order_type_inactive(chat_id, raw_body)
+
+    elif body.startswith("payment list"):
+        eh.cmd_payment_list(chat_id, sender_id)
+    elif body.startswith("payment cancel"):
+        eh.cmd_payment_cancel(chat_id, raw_body, sender_id)
+    elif body.startswith("payment "):
+        eh.cmd_payment(chat_id, raw_body, sender_id)
+
     elif body == "help":
         lines = ["🤖 *Bot Commands*\n"]
 
@@ -915,6 +970,50 @@ def handle_message(data: dict) -> None:
         if ambri_cmds:
             lines.append("🔐 *Ambri*")
             lines.extend(ambri_cmds)
+            lines.append("")
+
+        # ── 🛍️ Ecommerce & Store ───────────────────────────────────────
+        ecom_cmds = []
+        ecom_admin_cmds = []
+
+        if rbac.has_permission(sender_id, "store admin"):
+            ecom_admin_cmds.append("• *store create <phone> <admin_phone> <address>* — Buat toko baru")
+            store = eh.es.get_store_by_admin(sender_id)
+            if store:
+                ecom_admin_cmds.append(f"• *store {store['id']} open/close* — Buka/tutup toko")
+                ecom_admin_cmds.append("• *product download* — Download template produk (Excel)")
+                ecom_admin_cmds.append(f"• *update product {store['id']}* + Excel — Update produk toko")
+                ecom_admin_cmds.append("• *payment method active/nonactive <name>* — Status metode bayar")
+                ecom_admin_cmds.append("• *payment method set <name> <url>* — Set gambar QR metode bayar")
+                ecom_admin_cmds.append("• *order type active/nonactive <name>* — Status tipe order")
+        
+        if rbac.has_permission(sender_id, "store list"): ecom_cmds.append("• *store list* — Lihat semua toko")
+        if rbac.has_permission(sender_id, "store follow"): ecom_cmds.append("• *store follow/unfollow <id>* — Ikuti/Berhenti ikuti toko")
+        if rbac.has_permission(sender_id, "store group"): ecom_cmds.append("• *store group <id>* — Link grup komunitas toko")
+        if rbac.has_permission(sender_id, "store location"): ecom_cmds.append("• *store location <id>* — Lokasi toko")
+        if rbac.has_permission(sender_id, "store cs"): ecom_cmds.append("• *store cs <id> <tanya>* — Tanya admin toko")
+        
+        if rbac.has_permission(sender_id, "product list"): ecom_cmds.append("• *product list <id>* — Lihat daftar produk toko")
+        if rbac.has_permission(sender_id, "product search"): ecom_cmds.append("• *product search <keyword>* — Cari produk")
+        if rbac.has_permission(sender_id, "product cart"): 
+            ecom_cmds.append("• *product cart add/remove <id> [qty]* — Kelola keranjang")
+            ecom_cmds.append("• *product cart list* — Lihat keranjang saya")
+            ecom_cmds.append("• *product cart process <store_id>* — Checkout keranjang")
+        if rbac.has_permission(sender_id, "product buy"): ecom_cmds.append("• *product buy <id> [qty]* — Beli produk langsung")
+        if rbac.has_permission(sender_id, "payment method list"): ecom_cmds.append("• *payment method list* — Lihat metode bayar")
+        if rbac.has_permission(sender_id, "order type"): ecom_cmds.append("• *order type* — Lihat tipe order")
+        if rbac.has_permission(sender_id, "payment"): ecom_cmds.append("• *payment <method> <type> <cart|id_qty>* — Lakukan pembayaran")
+        if rbac.has_permission(sender_id, "payment list"): ecom_cmds.append("• *payment list* — List order saya")
+        if rbac.has_permission(sender_id, "payment cancel"): ecom_cmds.append("• *payment cancel <order_id>* — Batalkan order")
+
+        if ecom_admin_cmds:
+            lines.append("🛍️ *Store Admin*")
+            lines.extend(ecom_admin_cmds)
+            lines.append("")
+            
+        if ecom_cmds:
+            lines.append("🛒 *Ecommerce*")
+            lines.extend(ecom_cmds)
             lines.append("")
 
         lines.append("Made with 🤖 and ❤️\nBy Sandroid")

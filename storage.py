@@ -178,6 +178,81 @@ def init_db() -> None:
                 last_sent_at TEXT NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS stores (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                phone_number TEXT,
+                admin_phone TEXT,
+                address TEXT,
+                group_url TEXT,
+                is_open BOOLEAN DEFAULT 1
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS store_followers (
+                store_id TEXT,
+                user_id TEXT,
+                PRIMARY KEY (store_id, user_id)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS products (
+                id TEXT PRIMARY KEY,
+                store_id TEXT,
+                name TEXT NOT NULL,
+                description TEXT,
+                image_url TEXT,
+                price REAL DEFAULT 0,
+                stock INTEGER DEFAULT 0
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS order_types (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT 1
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS payment_methods (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT 1,
+                image_url TEXT,
+                dev_qr_string TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS orders (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                store_id TEXT,
+                order_type_id TEXT,
+                payment_method_id TEXT,
+                status TEXT,
+                total_amount REAL,
+                created_at TEXT,
+                expires_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS order_items (
+                order_id TEXT,
+                product_id TEXT,
+                qty INTEGER,
+                price REAL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS carts (
+                user_id TEXT,
+                store_id TEXT,
+                product_id TEXT,
+                qty INTEGER,
+                PRIMARY KEY (user_id, product_id)
+            )
+        """)
         conn.commit()
         logger.info("📦 Database initialized at %s", DB_PATH)
     finally:

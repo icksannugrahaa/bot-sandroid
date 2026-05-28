@@ -38,6 +38,9 @@ DEFAULT_FEATURES = [
     "spam", "ai", "start", "hello", "ping", "help",
     # WhatsApp Message
     "batch download", "batch send",
+    # Ecommerce & Store Management
+    "store admin", "store list", "store follow", "store unfollow", "store group", "store location", "store cs",
+    "product list", "product search", "product cart", "product buy", "payment method list", "order type", "payment list", "payment cancel", "payment",
 ]
 
 DEFAULT_ROLES = ["super admin", "admin", "user"]
@@ -104,6 +107,23 @@ DEFAULT_MATRIX = {
     "hello":                          _ALL.copy(),
     "ping":                           _ALL.copy(),
     "help":                           _ALL.copy(),
+    # ── Ecommerce ──────────────────────────────────────────────────────────
+    "store admin":                    _SA.copy(),
+    "store list":                     _ALL.copy(),
+    "store follow":                   _ALL.copy(),
+    "store unfollow":                 _ALL.copy(),
+    "store group":                    _ALL.copy(),
+    "store location":                 _ALL.copy(),
+    "store cs":                       _ALL.copy(),
+    "product list":                   _ALL.copy(),
+    "product search":                 _ALL.copy(),
+    "product cart":                   _ALL.copy(),
+    "product buy":                    _ALL.copy(),
+    "payment method list":            _ALL.copy(),
+    "order type":                     _ALL.copy(),
+    "payment list":                   _ALL.copy(),
+    "payment cancel":                 _ALL.copy(),
+    "payment":                        _ALL.copy(),
 }
 
 
@@ -226,6 +246,10 @@ _FEATURE_GROUPS = [
     ("ambri", [
         "set ambri pass", "set ambri totp", "generate code",
     ]),
+    ("ecommerce", [
+        "store admin", "store list", "store follow", "store unfollow", "store group", "store location", "store cs",
+        "product list", "product search", "product cart", "product buy", "payment method list", "order type", "payment list", "payment cancel", "payment",
+    ]),
 ]
 
 # Friendly descriptions shown in the "description" column
@@ -241,6 +265,7 @@ _FEATURE_DESC = {
     "group_management": "WhatsApp — buat/edit/keluar grup",
     "admin_group":      "WhatsApp — admin add/remove, mute, check id",
     "maintenance":      "Mode maintenance (blokir non-admin)",
+    "ecommerce":        "Ecommerce — store, product, cart, payment",
 }
 
 # Non-role metadata columns the parser must skip
