@@ -322,6 +322,102 @@ def cmd_spam(chat_id: str, raw_body: str, sender_id: str, pushname: str = "") ->
 
     threading.Thread(target=_spam_worker).start()
 
+def cmd_batch_download(chat_id: str) -> None:
+    import openpyxl
+    import io
+    import base64
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Batch Message"
+    ws.append(["Phone", "Message"])
+    ws.append(["6283822145705", "Halo, ini pesan test batch!"])
+    ws.append(["08123456789", "Pesan ini juga dikirim massal."])
+    
+    # Adjust column width for visibility
+    ws.column_dimensions['A'].width = 20
+    ws.column_dimensions['B'].width = 50
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    b64_data = base64.b64encode(output.read()).decode('utf-8')
+    mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    filename = "batch_template.xlsx"
+    caption = "📄 *Template Batch Message*\n\nSilakan isi kolom Phone dan Message. Lalu balas (reply) atau lampirkan kembali file ini dengan caption:\n*batch send*"
+    whatsapp.send_file(chat_id, b64_data, mimetype, filename, caption)
+
+def cmd_batch_send(chat_id: str, media: dict) -> None:
+    if not media or "data" not in media:
+        send_text(chat_id, "⚠️ Harap lampirkan file Excel (.xlsx) bersamaan dengan pesan *batch send* (sebagai caption).")
+        return
+        
+    mimetype = media.get("mimetype", "")
+    # Check if the mimetype loosely looks like excel or it has a valid extension
+    if "spreadsheet" not in mimetype and "excel" not in mimetype and not mimetype.endswith("xlsx"):
+        # Sometimes mimetype isn't perfectly detected, so we'll log it but proceed to try parsing
+        logger.warning(f"Batch send mimetype looks weird: {mimetype}, trying to parse anyway.")
+        
+    import base64
+    import io
+    import openpyxl
+    import time
+    import threading
+    
+    try:
+        raw_data = base64.b64decode(media["data"])
+        wb = openpyxl.load_workbook(io.BytesIO(raw_data))
+        ws = wb.active
+    except Exception as e:
+        send_text(chat_id, f"❌ Gagal membaca file Excel. Pastikan Anda mengunggah format .xlsx yang valid.\nDetail: {e}")
+        return
+        
+    rows = list(ws.iter_rows(values_only=True))
+    if len(rows) < 2:
+        send_text(chat_id, "⚠️ File Excel kosong atau tidak ada data nomor (minimal 1 baris setelah header).")
+        return
+        
+    header = rows[0]
+    if str(header[0]).lower() != "phone" or str(header[1]).lower() != "message":
+        send_text(chat_id, "⚠️ Format Header salah. Pastikan sel A1 = 'Phone' dan sel B1 = 'Message'.")
+        return
+        
+    targets = []
+    for row in rows[1:]:
+        if not row[0]: continue
+        
+        phone_raw = str(row[0]).strip()
+        message = str(row[1]).strip() if len(row) > 1 and row[1] else ""
+        
+        import re
+        phone = re.sub(r'\D', '', phone_raw)
+        if phone.startswith("08"):
+            phone = "628" + phone[2:]
+            
+        if phone and message:
+            targets.append((phone, message))
+            
+    if not targets:
+        send_text(chat_id, "⚠️ Tidak ada data valid (Nomor dan Pesan) yang bisa dikirim.")
+        return
+        
+    send_text(chat_id, f"⏳ Memproses pengiriman ke *{len(targets)}* nomor. Jeda 2 detik per pesan untuk menghindari banned...")
+    
+    def _batch_worker():
+        success = 0
+        fail = 0
+        for i, (phone, msg) in enumerate(targets):
+            target_jid = f"{phone}@c.us"
+            res = whatsapp.send_text(target_jid, msg)
+            if res and res.get("success") is not False:
+                success += 1
+            else:
+                fail += 1
+            time.sleep(2) # 2s delay
+            
+        send_text(chat_id, f"✅ *Batch Broadcast Selesai!*\n\n✔️ Berhasil: {success}\n❌ Gagal: {fail}")
+        
+    threading.Thread(target=_batch_worker).start()
 
 
 def cmd_start(chat_id: str, sender_id: str, pushname: str = "") -> None:
@@ -681,6 +777,14 @@ def handle_message(data: dict) -> None:
         if check_rbac("spam"):
             pushname = data.get("pushname") or data.get("notifyName") or ""
             cmd_spam(chat_id, raw_body, sender_id, pushname)
+            
+    elif body == "batch download":
+        if check_rbac("batch download"):
+            cmd_batch_download(chat_id)
+            
+    elif body == "batch send":
+        if check_rbac("batch send"):
+            cmd_batch_send(chat_id, data.get("media"))
 
     elif body == "help":
         lines = ["🤖 *Bot Commands*\n"]
@@ -697,6 +801,16 @@ def handle_message(data: dict) -> None:
         if wa_general_cmds:
             lines.append("💬 *WhatsApp General*")
             lines.extend(wa_general_cmds)
+            lines.append("")
+
+        # ── 📢 WhatsApp Message ─────────────────────────────────────────
+        wa_msg_cmds = []
+        if rbac.has_permission(sender_id, "batch download"): wa_msg_cmds.append("• *batch download* — Unduh template excel untuk pesan massal")
+        if rbac.has_permission(sender_id, "batch send"):     wa_msg_cmds.append("• *batch send* — Kirim pesan massal (lampirkan file excel)")
+        
+        if wa_msg_cmds:
+            lines.append("📢 *WhatsApp Message*")
+            lines.extend(wa_msg_cmds)
             lines.append("")
 
         # ── 📅 Attendance ──────────────────────────────────────────────

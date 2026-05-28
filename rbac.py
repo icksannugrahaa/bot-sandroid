@@ -36,6 +36,8 @@ DEFAULT_FEATURES = [
     "maintenance on", "maintenance off", "maintenance status",
     # WhatsApp General
     "spam", "ai", "start", "hello", "ping", "help",
+    # WhatsApp Message
+    "batch download", "batch send",
 ]
 
 DEFAULT_ROLES = ["super admin", "admin", "user"]
@@ -74,8 +76,8 @@ DEFAULT_MATRIX = {
     # ── Group Management ──────────────────────────────────────────────────
     "group create":                   _AA.copy(),
     "group update":                   _AA.copy(),
-    "group users":                    _AA.copy(),
-    "group leave":                    _AA.copy(),
+    "group users":                    _ALL.copy(),
+    "group leave":                    _SA.copy(),
     # ── Group Admin Management ────────────────────────────────────────────
     "admin add":                      _AA.copy(),
     "admin remove":                   _AA.copy(),
@@ -83,7 +85,7 @@ DEFAULT_MATRIX = {
     "user kick":                      _AA.copy(),
     "user mute":                      _AA.copy(),
     "user unmute":                    _AA.copy(),
-    "check id":                       _AA.copy(),
+    "check id":                       _ALL.copy(),
     # ── RBAC Management ───────────────────────────────────────────────────
     "rbac list users":                _SA.copy(),
     "rbac download":                  _SA.copy(),
@@ -91,10 +93,13 @@ DEFAULT_MATRIX = {
     # ── Maintenance ───────────────────────────────────────────────────────
     "maintenance on":                 _SA.copy(),
     "maintenance off":                _SA.copy(),
-    "maintenance status":             _SA.copy(),
+    "maintenance status":             _ALL.copy(),
+    # ── WhatsApp Message ──────────────────────────────────────────────────
+    "batch download":                 _AA.copy(),
+    "batch send":                     _AA.copy(),
     # ── WhatsApp General ──────────────────────────────────────────────────
-    "spam":                           _SA.copy(),
-    "ai":                             _SA.copy(),
+    "spam":                           _AA.copy(),
+    "ai":                             _ALL.copy(),
     "start":                          _ALL.copy(),
     "hello":                          _ALL.copy(),
     "ping":                           _ALL.copy(),
