@@ -152,6 +152,11 @@ def admin_remove_cmd(send_text, chat_id, raw_body, data):
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *admin remove <nomor>*")
     target = resolve_lid_to_cus(clean_number(parts[2]))
+    
+    import rbac
+    if rbac.is_protected(target):
+        return send_text(chat_id, "🛡️ Tidak dapat melakukan aksi ini pada Super Admin atau Bot.")
+        
     res = whatsapp.remove_group_admin(chat_id, [target])
     if res.get("success"): send_text(chat_id, f"✅ Berhasil menurunkan {target.replace('@c.us','').replace('@lid','')} dari admin.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
@@ -170,6 +175,11 @@ def user_kick_cmd(send_text, chat_id, raw_body, data):
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user kick <nomor>*")
     target = resolve_lid_to_cus(clean_number(parts[2]))
+    
+    import rbac
+    if rbac.is_protected(target):
+        return send_text(chat_id, "🛡️ Tidak dapat mengeluarkan Super Admin atau Bot.")
+        
     res = whatsapp.remove_group_participant(chat_id, [target])
     if res.get("success"): send_text(chat_id, f"✅ Berhasil mengeluarkan {target.replace('@c.us','').replace('@lid','')} dari grup.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
@@ -179,6 +189,11 @@ def user_mute_cmd(send_text, chat_id, raw_body, data):
     parts = raw_body.split()
     if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user mute <nomor>*")
     target = clean_number(parts[2])
+    
+    import rbac
+    if rbac.is_protected(target):
+        return send_text(chat_id, "🛡️ Tidak dapat membisukan Super Admin atau Bot.")
+        
     storage.mute_user(chat_id, target)
     send_text(chat_id, f"🔇 Berhasil membisukan {target.replace('@c.us','')}. Pesan mereka akan dihapus otomatis (pastikan bot adalah admin).")
 

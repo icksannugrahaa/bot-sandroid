@@ -435,6 +435,11 @@ def cmd_ban_user(chat_id: str, raw_body: str) -> None:
         send_text(chat_id, "⚠️ Usage: *bot ban <nomor>*\nContoh: *bot ban 628123456789*")
         return
     identifier = parts[2].strip()
+    
+    if rbac.is_protected(identifier):
+        send_text(chat_id, "🛡️ Tidak dapat membanned Super Admin atau Bot.")
+        return
+        
     if storage.ban_bot_user(identifier):
         send_text(chat_id, f"🚫 User `{identifier}` telah di-*BAN*. Mereka tidak bisa menggunakan bot lagi.")
     else:
@@ -938,8 +943,12 @@ def handle_message(data: dict) -> None:
             if len(parts) >= 4:
                 target_number = parts[2]
                 role_name = parts[3]
-                msg = rbac.assign_role(sender_id, target_number, role_name)
-                send_text(chat_id, msg)
+                
+                if rbac.is_protected(target_number):
+                    send_text(chat_id, "🛡️ Tidak dapat mengubah role dari Super Admin atau Bot.")
+                else:
+                    msg = rbac.assign_role(sender_id, target_number, role_name)
+                    send_text(chat_id, msg)
             else:
                 send_text(chat_id, "⚠️ Usage: *set role <nomor> <role_name>*\nContoh: *set role 628123 admin*")
 

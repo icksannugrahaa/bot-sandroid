@@ -133,14 +133,35 @@ def init_default_rbac():
 
 def get_user_role(chat_id: str) -> str:
     """Returns the role of the user. Defaults to 'super admin' if in ADMIN_CHAT_IDS, else 'user'."""
-    if chat_id in ADMIN_CHAT_IDS:
-        return "super admin"
+    # Strict matching without domain suffix
+    clean_id = chat_id.split('@')[0] if chat_id else ""
+    for admin_id in ADMIN_CHAT_IDS:
+        if admin_id.split('@')[0] == clean_id:
+            return "super admin"
     
     role = storage.get_user_role(chat_id)
     if role:
         return role
     
     return "user"
+
+def is_protected(target_id: str) -> bool:
+    """Check if the target is the bot itself or a super admin."""
+    import os
+    clean_target = target_id.split('@')[0] if target_id else ""
+    
+    # Check if target is bot
+    bot_phone = os.getenv("BOT_PHONE", "").split('@')[0]
+    bot_lid = os.getenv("BOT_LID", "").split('@')[0]
+    
+    if (bot_phone and clean_target == bot_phone) or (bot_lid and clean_target == bot_lid):
+        return True
+        
+    # Check if target is super admin
+    if get_user_role(clean_target) == "super admin":
+        return True
+        
+    return False
 
 def has_permission(chat_id: str, feature: str) -> bool:
     """Checks if a user has permission to access a feature."""
