@@ -181,11 +181,19 @@ def group_leave_cmd(send_text, chat_id, data):
     send_text(chat_id, "👋 Selamat tinggal! Bot akan keluar dari grup.")
     whatsapp.leave_group(chat_id)
 
+def get_target_jid(parts, data):
+    mentioned_jids = data.get("mentionedJidList") or data.get("mentionedJids") or []
+    if mentioned_jids:
+        return mentioned_jids[0]
+    if len(parts) >= 3:
+        return clean_number(parts[2])
+    return None
+
 def admin_add_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *admin add <nomor>*")
-    target = clean_number(parts[2])
+    target = get_target_jid(parts, data)
+    if not target: return send_text(chat_id, "⚠️ Usage: *admin add <nomor>*")
     res = whatsapp.add_group_admin(chat_id, [target])
     if res.get("success"): send_text(chat_id, f"✅ Berhasil mengangkat {target.replace('@c.us','').replace('@lid','')} menjadi admin.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
@@ -193,8 +201,8 @@ def admin_add_cmd(send_text, chat_id, raw_body, data):
 def admin_remove_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *admin remove <nomor>*")
-    target = clean_number(parts[2])
+    target = get_target_jid(parts, data)
+    if not target: return send_text(chat_id, "⚠️ Usage: *admin remove <nomor>*")
     
     import rbac
     if rbac.is_protected(target):
@@ -207,8 +215,8 @@ def admin_remove_cmd(send_text, chat_id, raw_body, data):
 def user_add_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user add <nomor>*")
-    target = clean_number(parts[2])
+    target = get_target_jid(parts, data)
+    if not target: return send_text(chat_id, "⚠️ Usage: *user add <nomor>*")
     res = whatsapp.add_group_participant(chat_id, [target])
     if res.get("success"): send_text(chat_id, f"✅ Berhasil menambahkan {target.replace('@c.us','').replace('@lid','')} ke grup.")
     else: send_text(chat_id, f"❌ Gagal: {res.get('error')}")
@@ -216,8 +224,8 @@ def user_add_cmd(send_text, chat_id, raw_body, data):
 def user_kick_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user kick <nomor>*")
-    target = clean_number(parts[2])
+    target = get_target_jid(parts, data)
+    if not target: return send_text(chat_id, "⚠️ Usage: *user kick <nomor>*")
     
     import rbac
     if rbac.is_protected(target):
@@ -230,23 +238,23 @@ def user_kick_cmd(send_text, chat_id, raw_body, data):
 def user_mute_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user mute <nomor>*")
-    target = clean_number(parts[2])
+    target = get_target_jid(parts, data)
+    if not target: return send_text(chat_id, "⚠️ Usage: *user mute <nomor>*")
     
     import rbac
     if rbac.is_protected(target):
         return send_text(chat_id, "🛡️ Tidak dapat membisukan Super Admin atau Bot.")
         
     storage.mute_user(chat_id, target)
-    send_text(chat_id, f"🔇 Berhasil membisukan {target.replace('@c.us','')}. Pesan mereka akan dihapus otomatis (pastikan bot adalah admin).")
+    send_text(chat_id, f"🔇 Berhasil membisukan {target.replace('@c.us','').replace('@lid','')}. Pesan mereka akan dihapus otomatis (pastikan bot adalah admin).")
 
 def user_unmute_cmd(send_text, chat_id, raw_body, data):
     if not data.get("isGroup"): return send_text(chat_id, "⚠️ Hanya di dalam grup.")
     parts = raw_body.split()
-    if len(parts) < 3: return send_text(chat_id, "⚠️ Usage: *user unmute <nomor>*")
-    target = clean_number(parts[2])
+    target = get_target_jid(parts, data)
+    if not target: return send_text(chat_id, "⚠️ Usage: *user unmute <nomor>*")
     storage.unmute_user(chat_id, target)
-    send_text(chat_id, f"🔊 {target.replace('@c.us','')} telah di-unmute.")
+    send_text(chat_id, f"🔊 {target.replace('@c.us','').replace('@lid','')} telah di-unmute.")
 
 def check_id_cmd(send_text, chat_id, data, bot_lid: str = "", bot_phone: str = ""):
     """
