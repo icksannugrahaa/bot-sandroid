@@ -487,6 +487,7 @@ def get_muted_users(group_id: str) -> list[str]:
         conn.close()
 
 def is_muted(group_id: str, user_id: str) -> bool:
+    user_id = user_id.split('@')[0]
     conn = sqlite3.connect(DB_PATH)
     try:
         row = conn.execute("SELECT 1 FROM muted_users WHERE group_id = ? AND user_id = ?", (group_id, user_id)).fetchone()
@@ -497,6 +498,7 @@ def is_muted(group_id: str, user_id: str) -> bool:
         conn.close()
 
 def mute_user(group_id: str, user_id: str) -> None:
+    user_id = user_id.split('@')[0]
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute("INSERT OR IGNORE INTO muted_users (group_id, user_id) VALUES (?, ?)", (group_id, user_id))
@@ -505,6 +507,7 @@ def mute_user(group_id: str, user_id: str) -> None:
         conn.close()
 
 def unmute_user(group_id: str, user_id: str) -> None:
+    user_id = user_id.split('@')[0]
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute("DELETE FROM muted_users WHERE group_id = ? AND user_id = ?", (group_id, user_id))
