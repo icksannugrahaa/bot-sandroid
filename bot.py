@@ -1200,6 +1200,17 @@ def webhook():
 
     if event == "message.received":
         threading.Thread(target=handle_message, args=(data,)).start()
+    elif event == "group.join":
+        group_id = data.get("groupId", data.get("id", data.get("chatId", "")))
+        who = data.get("participant", data.get("who", data.get("participants", [])))
+        if isinstance(who, str):
+            who = [who]
+            
+        if group_id and who:
+            store = eh.es.get_store_by_group(group_id)
+            if store:
+                for participant in who:
+                    threading.Thread(target=eh.send_welcome_products, args=(participant, store)).start()
     elif event == "session.status":
         status = data.get("status", "")
         logger.info("📡 Session status changed: %s", status)

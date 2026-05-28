@@ -278,6 +278,21 @@ def cmd_product_search(chat_id: str, raw_body: str) -> None:
         
     whatsapp.send_text(chat_id, "\n\n".join(lines))
 
+def send_welcome_products(chat_id: str, store: dict) -> None:
+    whatsapp.send_text(chat_id, f"👋 Welcome to *{store['name']}* community!\n\nHere are our latest products:")
+    products = es.get_products(store['id'])
+    if not products:
+        whatsapp.send_text(chat_id, "📦 Stay tuned for our upcoming products!")
+        return
+        
+    lines = [f"📦 *Product List - {store['name']}*"]
+    # Limit to top 10 to avoid spamming
+    for p in products[:10]:
+        lines.append(f"• *{p['name']}* ({p['id']})\n  💰 Rp{p['price']} | 📦 Stock: {p['stock']}")
+        
+    lines.append(f"\nTo buy, use: *product buy <product_id>*")
+    whatsapp.send_text(chat_id, "\n\n".join(lines))
+
 # ──────────────────────────────────────────────────────────────
 # Cart & Checkout
 # ──────────────────────────────────────────────────────────────

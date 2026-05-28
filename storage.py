@@ -186,9 +186,14 @@ def init_db() -> None:
                 admin_phone TEXT,
                 address TEXT,
                 group_url TEXT,
+                group_id TEXT,
                 is_open BOOLEAN DEFAULT 1
             )
         """)
+        try:
+            conn.execute("ALTER TABLE stores ADD COLUMN group_id TEXT")
+        except sqlite3.OperationalError:
+            pass
         conn.execute("""
             CREATE TABLE IF NOT EXISTS store_followers (
                 store_id TEXT,
