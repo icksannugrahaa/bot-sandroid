@@ -47,45 +47,77 @@ def resolve_lid_to_cus(target: str) -> str:
 def group_create_cmd(send_text, chat_id, raw_body):
     parts = raw_body.split()
     if len(parts) < 3:
-        return send_text(chat_id, "⚠️ Usage: *group create <name> [nomor1,nomor2]*")
+        return send_text(chat_id, "⚠️ Usage: *group create <nama> <nomor_peserta> [nomor_admin] [admin_only]*")
     
-    name_parts = []
-    participants = []
-    
-    for p in parts[2:]:
-        # Strip brackets just in case user typed literal documentation brackets
-        clean_p = p.strip("[]")
-        
-        # If it looks like a number or has commas
-        if clean_p.replace(",","").isdigit() or clean_p.startswith("@"):
-            nums = clean_p.split(",")
-            for n in nums:
-                cn = clean_number(n)
-                if cn: participants.append(cn)
-        else:
-            name_parts.append(p)
-            
-    # Support trailing 'admin_only' flag
+    # Defaults
     admin_only = False
-    if name_parts and name_parts[-1].lower() == "admin_only":
+    admins = []
+    participants = []
+    name_parts = []
+    
+    # Parse from the end to the beginning
+    args = parts[2:]
+    
+    if args and args[-1].lower() == "admin_only":
         admin_only = True
-        name_parts.pop()
+        args.pop()
+        
+    # We expect up to 2 numeric groups at the end: [participants] [admins]
+    numeric_args = []
+    while args:
+        clean_p = args[-1].strip("[]")
+        # Check if it looks like a JID or a list of phone numbers
+        if clean_p.replace(",", "").isdigit() or clean_p.startswith("@"):
+            numeric_args.insert(0, args.pop())
+        else:
+            break
+            
+    name_parts = args
+    
+    # If 2 numeric arguments, first is participants, second is admins
+    if len(numeric_args) >= 2:
+        parts_str = numeric_args[0].split(",")
+        admins_str = numeric_args[1].split(",")
+        participants = [clean_number(n) for n in parts_str if clean_number(n)]
+        admins = [clean_number(n) for n in admins_str if clean_number(n)]
+    elif len(numeric_args) == 1:
+        parts_str = numeric_args[0].split(",")
+        participants = [clean_number(n) for n in parts_str if clean_number(n)]
         
     name = " ".join(name_parts)
     if not name:
         return send_text(chat_id, "⚠️ Nama grup tidak boleh kosong.")
         
     if not participants:
-        return send_text(chat_id, "⚠️ Gagal membuat grup: Anda harus memasukkan minimal 1 nomor peserta.\nFormat: *group create <nama> <nomor_peserta> [admin_only]*")
+        return send_text(chat_id, "⚠️ Gagal membuat grup: Anda harus memasukkan minimal 1 nomor peserta.\nFormat: *group create <nama> <nomor_peserta> [nomor_admin] [admin_only]*")
         
     send_text(chat_id, f"⏳ Sedang membuat grup '{name}' dengan {len(participants)} peserta...")
     res = whatsapp.create_group(name, participants)
     
     # OpenWA returns raw group info on success, so we check if 'id' or 'gid' is in the result.
     if res.get("success") or ("id" in res) or ("gid" in res):
+        group_id = res.get("id") or res.get("gid")
         reply = f"✅ Grup berhasil dibuat!"
-        if admin_only:
-            reply += "\n\n⚠️ *Catatan:* Setting 'admin_only' belum didukung oleh REST API OpenWA versi ini, sehingga pengaturan izin pesan grup tidak dapat diubah oleh bot."
+        
+        if group_id and admins:
+            import time
+            time.sleep(2)
+            admin_res = whatsapp.add_group_admin(group_id, admins)
+            if admin_res.get("success"):
+                reply += f"\n✅ Berhasil mengangkat {len(admins)} admin."
+            else:
+                reply += f"\n❌ Gagal mengangkat admin: {admin_res.get('error')}"
+                
+        if group_id:
+            import time
+            time.sleep(2)
+            setting_res = whatsapp.set_group_messages_setting(group_id, admin_only)
+            if setting_res.get("success"):
+                status_str = "Hanya Admin" if admin_only else "Semua Peserta"
+                reply += f"\n✅ Setting chat grup diubah ke: {status_str}."
+            else:
+                reply += "\n\n⚠️ *Catatan:* API untuk mengatur izin chat ('admin_only') belum tersedia di server OpenWA Anda. Pesan error: " + str(setting_res.get('error'))
+                
         send_text(chat_id, reply)
     else:
         send_text(chat_id, f"❌ Gagal membuat grup: {res.get('error', res)}")

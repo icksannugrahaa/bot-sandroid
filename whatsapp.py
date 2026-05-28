@@ -108,16 +108,39 @@ def update_group(group_id: str, name: str = None, description: str = None) -> di
             errors.append(str(exc))
             
     if description:
-        url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/description"
+        # Note: OpenWA doesn't have an endpoint for description in the same payload, it's a separate PUT.
+        # However, following the spec, we attempt it if it exists.
+        payload = {"description": description}
+        url_desc = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/description"
         try:
-            resp = requests.put(url, json={"description": description}, headers=headers, timeout=30)
-            resp.raise_for_status()
+            resp_desc = requests.put(url_desc, json=payload, headers=headers, timeout=30)
+            resp_desc.raise_for_status()
+        except requests.exceptions.HTTPError as exc:
+            success = False
+            errors.append(f"description error: {exc.response.text if exc.response is not None else 'no body'}")
         except Exception as exc:
-            logger.error("❌ Failed to update group description %s: %s", group_id, exc)
             success = False
             errors.append(str(exc))
             
-    return {"success": success, "error": ", ".join(errors) if errors else None}
+    if not success:
+        return {"success": False, "error": "; ".join(errors)}
+    return {"success": True}
+
+def set_group_messages_setting(group_id: str, admins_only: bool) -> dict:
+    url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}/settings/messages"
+    headers = {"Content-Type": "application/json", "X-API-Key": OPENWA_API_KEY}
+    payload = {"adminsOnly": admins_only}
+    try:
+        resp = requests.put(url, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.HTTPError as exc:
+        error_body = exc.response.text if exc.response is not None else "no response body"
+        logger.error("❌ Failed to set group messages setting for %s: %s", group_id, error_body)
+        return {"success": False, "error": error_body}
+    except Exception as exc:
+        logger.error("❌ Failed to set group messages setting for %s: %s", group_id, exc)
+        return {"success": False, "error": str(exc)}
 
 def get_group_info(group_id: str) -> dict:
     url = f"{OPENWA_BASE_URL}/api/sessions/{OPENWA_SESSION_ID}/groups/{group_id}"
